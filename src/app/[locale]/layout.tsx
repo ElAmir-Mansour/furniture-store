@@ -11,13 +11,13 @@ import { Toaster } from 'react-hot-toast';
 
 const playfair = Playfair_Display({
     subsets: ['latin'],
-    variable: '--font-display',
+    variable: '--next-font-display',
     display: 'swap',
 });
 
 const inter = Inter({
     subsets: ['latin'],
-    variable: '--font-body',
+    variable: '--next-font-body',
     display: 'swap',
 });
 
