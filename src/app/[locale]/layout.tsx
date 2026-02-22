@@ -3,10 +3,23 @@ import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import type { Metadata } from 'next';
+import { Playfair_Display, Inter } from 'next/font/google';
 import '../globals.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import Navbar from '@/components/Navbar';
 import { Toaster } from 'react-hot-toast';
+
+const playfair = Playfair_Display({
+    subsets: ['latin'],
+    variable: '--font-display',
+    display: 'swap',
+});
+
+const inter = Inter({
+    subsets: ['latin'],
+    variable: '--font-body',
+    display: 'swap',
+});
 
 export const metadata: Metadata = {
     title: 'Furniture Store | Premium Home Furnishings',
@@ -35,7 +48,7 @@ export default async function LocaleLayout({
 
     return (
         <html lang={locale} dir={dir} suppressHydrationWarning>
-            <body suppressHydrationWarning>
+            <body className={`${playfair.variable} ${inter.variable} font-body bg-bg text-text`} suppressHydrationWarning>
                 <SessionProvider>
                     <NextIntlClientProvider messages={messages}>
                         <Navbar />
