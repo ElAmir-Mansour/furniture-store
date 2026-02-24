@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/middleware/requireAdmin';
 import { orderService } from '@/services/order.service';
 
+import { OrderStatus } from '@prisma/client';
+
 // GET /api/v1/admin/orders — all orders with optional status filter
 export async function GET(request: NextRequest) {
     const auth = await requireAdmin();
@@ -9,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const sp = request.nextUrl.searchParams;
-        const status = sp.get('status') as Parameters<typeof orderService.getAllOrders>[0]['status'] | null;
+        const status = sp.get('status') as OrderStatus | null;
         const search = sp.get('search') || undefined;
         const page = Number(sp.get('page')) || 1;
         const pageSize = Number(sp.get('pageSize')) || 50;

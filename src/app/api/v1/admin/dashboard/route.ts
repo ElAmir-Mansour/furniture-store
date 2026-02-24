@@ -21,7 +21,7 @@ export async function GET() {
         const todayRevenue = await prisma.order.aggregate({
             where: {
                 createdAt: { gte: startOfDay },
-                status: { in: ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CONFIRMED'] },
+                status: { in: ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
             },
             _sum: { total: true },
         });
