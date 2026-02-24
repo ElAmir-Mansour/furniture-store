@@ -6,7 +6,6 @@ import { useTranslations, useLocale } from 'next-intl';
 
 export default function FAQPage() {
     const t = useTranslations('faq');
-    const tCommon = useTranslations('common');
     const locale = useLocale();
     const [openIndex, setOpenIndex] = useState<number | null>(0);
 
@@ -83,104 +82,58 @@ export default function FAQPage() {
     return (
         <div>
             {/* Hero */}
-            <section style={{
-                background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-                color: 'white',
-                padding: '80px 0',
-                textAlign: 'center',
-            }}>
+            <section style={{ background: '#1a1a2e', color: 'white', padding: '80px 0', textAlign: 'center' }}>
                 <div className="container">
-                    <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', marginBottom: '16px' }}>{t('title')}</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.7)' }}>{t('subtitle')}</p>
+                    <span style={{ fontSize: '3rem', display: 'block', marginBottom: '16px' }}>💬</span>
+                    <h1 className="font-display" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, marginBottom: '16px', color: 'white' }}>{t('title')}</h1>
+                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1.1rem', maxWidth: '480px', margin: '0 auto' }}>{t('subtitle')}</p>
                 </div>
             </section>
 
             {/* FAQ Content */}
-            <section style={{ padding: '80px 0' }}>
-                <div className="container" style={{ maxWidth: 900 }}>
+            <section className="section bg-bg-alt">
+                <div className="container max-w-4xl">
                     {faqCategories.map((category, catIndex) => (
-                        <div key={catIndex} style={{ marginBottom: '48px' }}>
-                            <h2 style={{
-                                fontSize: '1.5rem',
-                                fontWeight: 600,
-                                color: '#1f2937',
-                                marginBottom: '24px',
-                                paddingBottom: '12px',
-                                borderBottom: '2px solid #e5e7eb',
-                            }}>
+                        <div key={catIndex} className="mb-12">
+                            <h2 className="font-display text-2xl font-bold text-primary mb-6 pb-4 border-b-2 border-secondary/30">
                                 {category.title}
                             </h2>
-                            {category.items.map((item) => {
-                                const idx = globalIndex++;
-                                const isOpen = openIndex === idx;
-                                return (
-                                    <div key={idx} style={{
-                                        marginBottom: '12px',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '12px',
-                                        overflow: 'hidden',
-                                    }}>
-                                        <button
-                                            onClick={() => setOpenIndex(isOpen ? null : idx)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '20px 24px',
-                                                background: isOpen ? '#f9fafb' : 'white',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                textAlign: locale === 'ar' ? 'right' : 'left',
-                                            }}
+                            <div className="space-y-3">
+                                {category.items.map((item) => {
+                                    const idx = globalIndex++;
+                                    const isOpen = openIndex === idx;
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className={`border rounded-2xl overflow-hidden transition-all duration-300 ${isOpen ? 'border-secondary shadow-md' : 'border-border-light bg-white hover:border-border hover:shadow-sm'}`}
                                         >
-                                            <span style={{ fontWeight: 500, color: '#1f2937', fontSize: '1rem' }}>
-                                                {item.q}
-                                            </span>
-                                            <span style={{
-                                                fontSize: '1.25rem',
-                                                color: '#6b7280',
-                                                transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
-                                                transition: 'transform 0.2s',
-                                            }}>
-                                                ▼
-                                            </span>
-                                        </button>
-                                        {isOpen && (
-                                            <div style={{
-                                                padding: '0 24px 20px',
-                                                color: '#6b7280',
-                                                lineHeight: 1.7,
-                                            }}>
-                                                {item.a}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                            <button
+                                                onClick={() => setOpenIndex(isOpen ? null : idx)}
+                                                className={`w-full p-6 flex justify-between items-center text-start cursor-pointer border-none transition-colors ${isOpen ? 'bg-secondary/5' : 'bg-white'}`}
+                                            >
+                                                <span className="font-bold text-primary pr-6">{item.q}</span>
+                                                <span className={`text-secondary text-xl shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                                            </button>
+                                            {isOpen && (
+                                                <div className="px-6 pb-6 text-text-muted leading-relaxed border-t border-border-light bg-white pt-4">
+                                                    {item.a}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     ))}
                 </div>
             </section>
 
             {/* CTA */}
-            <section style={{
-                background: '#f9fafb',
-                padding: '60px 0',
-                textAlign: 'center',
-            }}>
-                <div className="container">
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '12px', color: '#1f2937' }}>{t('stillQuestions')}</h2>
-                    <p style={{ color: '#6b7280', marginBottom: '24px' }}>{t('supportHelp')}</p>
-                    <Link href={`/${locale}/contact`} style={{
-                        display: 'inline-block',
-                        padding: '14px 32px',
-                        background: '#1f2937',
-                        color: 'white',
-                        borderRadius: '8px',
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                    }}>
+            <section style={{ background: '#1a1a2e', padding: '80px 0', textAlign: 'center' }}>
+                <div className="container" style={{ maxWidth: '640px' }}>
+                    <h2 className="font-display" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 700, color: 'white', marginBottom: '16px' }}>{t('stillQuestions')}</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.65)', marginBottom: '32px' }}>{t('supportHelp')}</p>
+                    <Link href={`/${locale}/contact`} style={{ display: 'inline-block', background: '#c9a959', color: '#1a1a2e', padding: '14px 36px', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '1rem' }}>
                         {t('contactUs')}
                     </Link>
                 </div>

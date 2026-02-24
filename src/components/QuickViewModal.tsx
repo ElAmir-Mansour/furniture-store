@@ -39,7 +39,7 @@ export default function QuickViewModal({ productSlug, onClose }: QuickViewModalP
                 const res = await fetch(`/api/v1/products/${productSlug}`);
                 const data = await res.json();
                 if (data.success) {
-                    setProduct(data.data);
+                    setProduct(data.data.product);
                 }
             } catch (error) {
                 console.error('Failed to fetch product:', error);
@@ -119,9 +119,10 @@ export default function QuickViewModal({ productSlug, onClose }: QuickViewModalP
                 background: 'white',
                 borderRadius: '16px',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                overflow: 'hidden',
+                overflowY: 'auto',
                 maxHeight: '90vh',
                 display: 'flex',
+                flexWrap: 'wrap',
             }}>
                 {/* Close Button */}
                 <button
@@ -162,14 +163,14 @@ export default function QuickViewModal({ productSlug, onClose }: QuickViewModalP
                     <>
                         {/* Image */}
                         <div style={{
-                            width: '50%',
+                            flex: '1 1 300px',
                             background: '#f9fafb',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                         }}>
                             <img
-                                src={product.images[0]?.standardUrl || '/placeholder.jpg'}
+                                src={product.images?.[0]?.standardUrl || '/placeholder.jpg'}
                                 alt={product.name}
                                 style={{
                                     width: '100%',
@@ -181,7 +182,7 @@ export default function QuickViewModal({ productSlug, onClose }: QuickViewModalP
 
                         {/* Details */}
                         <div style={{
-                            width: '50%',
+                            flex: '1 1 300px',
                             padding: '32px',
                             display: 'flex',
                             flexDirection: 'column',

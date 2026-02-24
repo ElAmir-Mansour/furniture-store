@@ -13,13 +13,14 @@ interface Product {
     status: 'active' | 'draft' | 'archived';
     imageUrl: string;
     variants: number;
-    createdAt: string;
 }
 
 export default function AdminProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('All Categories');
+    const [statusFilter, setStatusFilter] = useState('All Status');
 
     useEffect(() => {
         fetchProducts();
@@ -31,7 +32,11 @@ export default function AdminProductsPage() {
             const res = await fetch('/api/v1/products?pageSize=50');
             const data = await res.json();
             if (data.success) {
-                setProducts(data.data.items.map((p: any) => ({
+                setProducts(data.data.items.map((p: {
+                    id: string; name: string; slug: string; price: string | number;
+                    category?: { name?: string }; variants?: Array<{ stock?: number }>;
+                    isActive: boolean; images?: Array<{ thumbnailUrl?: string }>;
+                }) => ({
                     id: p.id,
                     name: p.name,
                     slug: p.slug,
@@ -41,7 +46,6 @@ export default function AdminProductsPage() {
                     status: p.isActive ? 'active' : 'draft',
                     imageUrl: p.images?.[0]?.thumbnailUrl || '',
                     variants: p.variants?.length || 0,
-                    createdAt: p.createdAt,
                 })));
             }
         } catch (error) {
@@ -51,61 +55,85 @@ export default function AdminProductsPage() {
         }
     }
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredProducts = products.filter(p => {
+        const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+        const matchCategory = categoryFilter === 'All Categories' || p.category === categoryFilter;
+        const matchStatus = statusFilter === 'All Status' || p.status === statusFilter.toLowerCase();
+        return matchSearch && matchCategory && matchStatus;
+    });
 
     const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length;
+    const outOfStock = products.filter(p => p.stock === 0).length;
+    const active = products.filter(p => p.status === 'active').length;
+
+    const stats = [
+        { label: 'Total Products', value: products.length, icon: '📦' },
+        { label: 'Active', value: active, icon: '✅' },
+        { label: 'Low Stock', value: lowStock, icon: '⚠️' },
+        { label: 'Out of Stock', value: outOfStock, icon: '❌' },
+    ];
+
+    function stockColor(stock: number) {
+        if (stock === 0) return '#dc2626';
+        if (stock < 10) return '#d97706';
+        return '#059669';
+    }
 
     return (
         <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            {/* Page Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="font-display text-2xl font-bold mb-2">Products</h1>
-                    <p className="text-gray-500">
-                        {products.length} products • {totalStock} total in stock
-                    </p>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px 0' }}>Products</h1>
+                    <p style={{ color: '#6b7280', margin: 0 }}>{products.length} products • {totalStock} total in stock</p>
                 </div>
-                <Link href="/admin/products/new" className="inline-flex items-center justify-center px-4 py-2 bg-[#1a1a2e] text-white font-medium rounded-lg hover:bg-[#2a2a4e] transition-colors whitespace-nowrap">
+                <Link href="/admin/products/new"
+                    style={{ padding: '10px 20px', background: '#1a1a2e', color: 'white', borderRadius: '10px', fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                     + Add Product
                 </Link>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                {[
-                    { label: 'Total Products', value: products.length, icon: '📦' },
-                    { label: 'Active', value: products.filter(p => p.status === 'active').length, icon: '✅' },
-                    { label: 'Low Stock', value: products.filter(p => p.stock < 10).length, icon: '⚠️' },
-                    { label: 'Out of Stock', value: products.filter(p => p.stock === 0).length, icon: '❌' },
-                ].map((stat) => (
-                    <div key={stat.label} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+                {stats.map((stat) => (
+                    <div key={stat.label} style={{ background: 'white', padding: '20px', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <p className="text-xs text-gray-500 mb-1 font-medium tracking-wide uppercase">{stat.label}</p>
-                            <p className="text-2xl font-bold text-gray-900 m-0">{stat.value}</p>
+                            <p style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px 0' }}>{stat.label}</p>
+                            <p style={{ fontSize: '1.75rem', fontWeight: 700, color: '#1a1a2e', margin: 0 }}>{stat.value}</p>
                         </div>
-                        <span className="text-2xl opacity-80">{stat.icon}</span>
+                        <span style={{ fontSize: '1.75rem', opacity: 0.8 }}>{stat.icon}</span>
                     </div>
                 ))}
             </div>
 
             {/* Search & Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <input
                     type="search"
                     placeholder="Search products..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c9a959] focus:ring-1 focus:ring-[#c9a959] transition-all"
+                    style={{ flex: 1, minWidth: '200px', padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '0.875rem', outline: 'none', background: 'white' }}
+                    onFocus={(e) => e.target.style.borderColor = '#c9a959'}
+                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 />
-                <select className="px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c9a959] min-w-[150px]">
+                <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '0.875rem', outline: 'none', background: 'white', minWidth: '150px', cursor: 'pointer' }}
+                >
                     <option>All Categories</option>
                     <option>Living Room</option>
                     <option>Bedroom</option>
                     <option>Dining Room</option>
                     <option>Home Office</option>
                 </select>
-                <select className="px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c9a959] min-w-[120px]">
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '0.875rem', outline: 'none', background: 'white', minWidth: '130px', cursor: 'pointer' }}
+                >
                     <option>All Status</option>
                     <option>Active</option>
                     <option>Draft</option>
@@ -113,75 +141,78 @@ export default function AdminProductsPage() {
                 </select>
             </div>
 
-            {/* Products Grid */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Products Table */}
+            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                 {loading ? (
-                    <div className="p-12 text-center text-gray-500">Loading products...</div>
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>Loading products...</div>
                 ) : filteredProducts.length === 0 ? (
-                    <div className="p-12 text-center text-gray-500">
-                        No products found
-                    </div>
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>No products found.</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[800px]">
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Price</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Variants</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <tr style={{ background: '#f9fafb' }}>
+                                    {['Product', 'Category', 'Price', 'Stock', 'Variants', 'Status', 'Actions'].map(h => (
+                                        <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb' }}>
+                                            {h}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredProducts.map((product) => (
-                                    <tr key={product.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
-                                                    {product.imageUrl ? (
-                                                        <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-gray-400 text-xs">No img</span>
-                                                    )}
+                                    <tr key={product.id} style={{ borderBottom: '1px solid #f3f4f6' }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#fafafa')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                    >
+                                        <td style={{ padding: '14px 16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: '#f3f4f6', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {product.imageUrl
+                                                        ? <img src={product.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        : <span style={{ fontSize: '12px', color: '#9ca3af' }}>N/A</span>
+                                                    }
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <Link href={`/admin/products/${product.id}`} className="font-semibold text-gray-900 hover:text-[#c9a959] transition-colors truncate block">
+                                                <div style={{ minWidth: 0 }}>
+                                                    <Link href={`/admin/products/${product.id}`}
+                                                        style={{ fontWeight: 600, color: '#111827', textDecoration: 'none', display: 'block', fontSize: '0.875rem' }}>
                                                         {product.name}
                                                     </Link>
-                                                    <p className="m-0 text-xs text-gray-500 truncate mt-0.5">
-                                                        {product.slug}
-                                                    </p>
+                                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>{product.slug}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-4">
-                                            <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                        <td style={{ padding: '14px 16px' }}>
+                                            <span style={{ padding: '4px 10px', background: '#f3f4f6', color: '#374151', borderRadius: '6px', fontSize: '12px', fontWeight: 500 }}>
                                                 {product.category}
                                             </span>
                                         </td>
-                                        <td className="p-4">
-                                            <span className="font-semibold text-gray-900">{product.price.toLocaleString()} EGP</span>
+                                        <td style={{ padding: '14px 16px', fontWeight: 700, color: '#111827', fontSize: '0.875rem' }}>
+                                            {product.price.toLocaleString()} EGP
                                         </td>
-                                        <td className="p-4">
-                                            <span className={`font-medium ${product.stock === 0 ? 'text-red-500' : product.stock < 10 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                                {product.stock}
-                                            </span>
+                                        <td style={{ padding: '14px 16px', fontWeight: 700, color: stockColor(product.stock), fontSize: '0.875rem' }}>
+                                            {product.stock}
                                         </td>
-                                        <td className="p-4 text-sm text-gray-700">{product.variants}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2.5 py-1 rounded-md text-xs font-medium capitalize ${product.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-600'}`}>
+                                        <td style={{ padding: '14px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                            {product.variants}
+                                        </td>
+                                        <td style={{ padding: '14px 16px' }}>
+                                            <span style={{
+                                                padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize',
+                                                background: product.status === 'active' ? '#ecfdf5' : '#f3f4f6',
+                                                color: product.status === 'active' ? '#059669' : '#6b7280'
+                                            }}>
                                                 {product.status}
                                             </span>
                                         </td>
-                                        <td className="p-4">
-                                            <div className="flex gap-2">
-                                                <Link href={`/admin/products/${product.id}/edit`} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-medium transition-colors">
+                                        <td style={{ padding: '14px 16px' }}>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <Link href={`/admin/products/${product.id}/edit`}
+                                                    style={{ padding: '5px 12px', background: '#f3f4f6', color: '#374151', borderRadius: '8px', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                                                     Edit
                                                 </Link>
-                                                <Link href={`/products/${product.slug}`} target="_blank" className="px-3 py-1.5 bg-[#1a1a2e] hover:bg-[#2a2a4e] text-white rounded-md text-xs font-medium transition-colors">
+                                                <Link href={`/en/products/${product.slug}`} target="_blank"
+                                                    style={{ padding: '5px 12px', background: '#1a1a2e', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
                                                     View
                                                 </Link>
                                             </div>

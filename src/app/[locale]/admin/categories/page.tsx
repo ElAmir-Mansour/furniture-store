@@ -1,143 +1,298 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 interface Category {
     id: string;
     name: string;
     nameAr?: string;
     slug: string;
-    description?: string;
     image?: string;
-    productCount: number;
     isActive: boolean;
     sortOrder: number;
     parentId?: string;
 }
 
+interface CategoryFormData {
+    name: string;
+    nameAr: string;
+    slug: string;
+    isActive: boolean;
+    sortOrder: string;
+}
+
+const SLUG_EMOJI: Record<string, string> = {
+    'living-room': '🛋️', 'bedroom': '🛏️', 'dining-room': '🍽️', 'home-office': '🖥️',
+};
+
 export default function AdminCategoriesPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [editingCat, setEditingCat] = useState<Category | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [form, setForm] = useState<CategoryFormData>({ name: '', nameAr: '', slug: '', isActive: true, sortOrder: '0' });
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
-
-    async function fetchCategories() {
+    const fetchCategories = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch('/api/v1/categories?flat=true');
             const data = await res.json();
-            if (data.success) {
-                // Add mock product counts
-                setCategories(data.data.map((cat: any, i: number) => ({
-                    ...cat,
-                    productCount: [3, 2, 2, 1][i] || 0,
-                    isActive: true,
-                })));
-            }
-        } catch (error) {
-            console.error('Failed to fetch categories:', error);
-            // Mock data fallback
-            setCategories([
-                { id: '1', name: 'Living Room', nameAr: 'غرفة المعيشة', slug: 'living-room', productCount: 3, isActive: true, sortOrder: 1 },
-                { id: '2', name: 'Bedroom', nameAr: 'غرفة النوم', slug: 'bedroom', productCount: 2, isActive: true, sortOrder: 2 },
-                { id: '3', name: 'Dining Room', nameAr: 'غرفة الطعام', slug: 'dining-room', productCount: 2, isActive: true, sortOrder: 3 },
-                { id: '4', name: 'Home Office', nameAr: 'المكتب المنزلي', slug: 'home-office', productCount: 1, isActive: true, sortOrder: 4 },
-            ]);
+            if (data.success) setCategories(data.data);
+        } catch {
+            toast.error('Failed to load categories');
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+    function slugify(text: string) {
+        return text.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     }
 
-    const totalProducts = categories.reduce((sum, c) => sum + c.productCount, 0);
+    function openCreate() {
+        setEditingCat(null);
+        setForm({ name: '', nameAr: '', slug: '', isActive: true, sortOrder: '0' });
+        setShowModal(true);
+    }
+
+    function openEdit(cat: Category) {
+        setEditingCat(cat);
+        setForm({ name: cat.name, nameAr: cat.nameAr || '', slug: cat.slug, isActive: cat.isActive, sortOrder: String(cat.sortOrder) });
+        setShowModal(true);
+    }
+
+    async function saveCategory() {
+        if (!form.name.trim() || !form.slug.trim()) {
+            toast.error('Name and slug are required');
+            return;
+        }
+        setSaving(true);
+        try {
+            const body = {
+                name: form.name,
+                nameAr: form.nameAr || undefined,
+                slug: form.slug,
+                isActive: form.isActive,
+                sortOrder: Number(form.sortOrder) || 0,
+            };
+
+            const url = editingCat ? `/api/v1/admin/categories/${editingCat.id}` : '/api/v1/categories';
+            const method = editingCat ? 'PATCH' : 'POST';
+
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success(editingCat ? 'Category updated!' : 'Category created!');
+                setShowModal(false);
+                fetchCategories();
+            } else {
+                toast.error(data.error || 'Save failed');
+            }
+        } catch {
+            toast.error('Network error');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function toggleCategoryStatus(cat: Category) {
+        try {
+            const res = await fetch(`/api/v1/admin/categories/${cat.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: !cat.isActive }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`Category ${cat.isActive ? 'deactivated' : 'activated'}`);
+                fetchCategories();
+            }
+        } catch {
+            toast.error('Failed to update category');
+        }
+    }
+
+    const totalProducts = 0; // Would come from product count
 
     return (
         <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            {/* Page Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="font-display text-2xl font-bold mb-2">Categories</h1>
-                    <p className="text-gray-500">
-                        {categories.length} categories • {totalProducts} products
-                    </p>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px 0' }}>Categories</h1>
+                    <p style={{ color: '#6b7280', margin: 0 }}>{categories.length} categories · {totalProducts} products</p>
                 </div>
-                <button className="inline-flex items-center justify-center px-4 py-2 bg-[#1a1a2e] text-white font-medium rounded-lg hover:bg-[#2a2a4e] transition-colors whitespace-nowrap">
+                <button
+                    onClick={openCreate}
+                    style={{ padding: '10px 20px', background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
                     + Add Category
                 </button>
             </div>
 
             {/* Categories Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {loading ? (
-                    Array(4).fill(0).map((_, i) => (
-                        <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                            <div className="bg-gray-200 animate-pulse h-[120px] rounded-lg mb-4" />
-                            <div className="bg-gray-200 animate-pulse h-5 w-[60%] rounded mb-2" />
-                            <div className="bg-gray-200 animate-pulse h-4 w-[40%] rounded" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
+                {loading
+                    ? Array(4).fill(0).map((_, i) => (
+                        <div key={i} style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e5e7eb', animation: 'pulse 1.5s ease-in-out infinite' }}>
+                            <div style={{ height: '160px', background: '#f3f4f6' }} />
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ height: '18px', width: '60%', background: '#f3f4f6', borderRadius: '6px', marginBottom: '8px' }} />
+                                <div style={{ height: '14px', width: '40%', background: '#f3f4f6', borderRadius: '6px' }} />
+                            </div>
                         </div>
                     ))
-                ) : (
-                    categories.map((category) => (
-                        <div key={category.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 group hover:shadow-md transition-shadow">
-                            {/* Category Image */}
-                            <div className="h-40 bg-gradient-to-br from-[#1a1a2e] to-[#2a2a4e] relative flex items-center justify-center overflow-hidden">
-                                {category.image ? (
-                                    <img src={category.image} alt={category.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                ) : (
-                                    <span className="text-5xl group-hover:scale-110 transition-transform duration-500">
-                                        {category.slug === 'living-room' && '🛋️'}
-                                        {category.slug === 'bedroom' && '🛏️'}
-                                        {category.slug === 'dining-room' && '🍽️'}
-                                        {category.slug === 'home-office' && '🖥️'}
-                                    </span>
-                                )}
-                                <span className={`absolute top-3 right-3 px-2.5 py-1 text-white rounded-md text-xs font-medium backdrop-blur-sm ${category.isActive ? 'bg-emerald-500/90' : 'bg-gray-500/90'}`}>
-                                    {category.isActive ? 'Active' : 'Draft'}
+                    : categories.map((cat) => (
+                        <div key={cat.id} style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'box-shadow 0.2s' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)')}
+                        >
+                            {/* Image */}
+                            <div style={{ height: '160px', background: 'linear-gradient(135deg, #1a1a2e, #2a2a4e)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                {cat.image
+                                    ? <img src={cat.image} alt={cat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span style={{ fontSize: '3.5rem' }}>{SLUG_EMOJI[cat.slug] || '🪑'}</span>
+                                }
+                                <span style={{
+                                    position: 'absolute', top: '12px', right: '12px',
+                                    padding: '4px 10px', background: cat.isActive ? 'rgba(5,150,105,0.9)' : 'rgba(107,114,128,0.9)',
+                                    color: 'white', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                                }}>
+                                    {cat.isActive ? 'Active' : 'Inactive'}
                                 </span>
                             </div>
 
-                            {/* Category Info */}
-                            <div className="p-5">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="min-w-0 pr-2">
-                                        <h3 className="m-0 font-semibold text-gray-900 truncate">{category.name}</h3>
-                                        {category.nameAr && (
-                                            <p className="m-0 mt-1 text-sm text-gray-500 truncate">
-                                                {category.nameAr}
-                                            </p>
-                                        )}
+                            {/* Info */}
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <h3 style={{ margin: 0, fontWeight: 700, color: '#111827', fontSize: '1rem' }}>{cat.name}</h3>
+                                        {cat.nameAr && <p style={{ margin: '4px 0 0 0', fontSize: '0.8125rem', color: '#9ca3af' }}>{cat.nameAr}</p>}
                                     </div>
-                                    <span className="px-2.5 py-1 bg-gray-50 text-gray-600 border border-gray-200 rounded-md text-xs whitespace-nowrap shrink-0">
-                                        {category.productCount} products
-                                    </span>
                                 </div>
-
-                                <p className="mt-3 mb-4 text-xs text-gray-400 font-mono truncate">
-                                    /{category.slug}
-                                </p>
-
-                                <div className="flex gap-2">
-                                    <button className="flex-1 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors">
-                                        Edit
+                                <p style={{ margin: '0 0 16px 0', fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>/{cat.slug}</p>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={() => openEdit(cat)}
+                                        style={{ flex: 1, padding: '8px', background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', transition: 'background 0.15s' }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = '#f9fafb')}
+                                    >
+                                        ✏️ Edit
                                     </button>
-                                    <Link href={`/category/${category.slug}`} className="flex-1 py-2 bg-[#1a1a2e] hover:bg-[#2a2a4e] text-white rounded-lg text-sm font-medium text-center transition-colors">
-                                        View
+                                    <Link
+                                        href={`/en/categories/${cat.slug}`}
+                                        target="_blank"
+                                        style={{ flex: 1, padding: '8px', background: '#1a1a2e', color: 'white', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none', textAlign: 'center' }}
+                                    >
+                                        👁 View
                                     </Link>
                                 </div>
+                                <button
+                                    onClick={() => toggleCategoryStatus(cat)}
+                                    style={{
+                                        width: '100%', marginTop: '8px', padding: '7px', borderRadius: '10px',
+                                        fontSize: '0.8125rem', fontWeight: 500, cursor: 'pointer', border: 'none',
+                                        background: cat.isActive ? '#fef2f2' : '#ecfdf5',
+                                        color: cat.isActive ? '#dc2626' : '#059669',
+                                    }}
+                                >
+                                    {cat.isActive ? '⏸ Deactivate' : '▶ Activate'}
+                                </button>
                             </div>
                         </div>
                     ))
-                )}
+                }
 
-                {/* Add New Category Card */}
-                <div className="bg-gray-50 hover:bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 flex flex-col items-center justify-center min-h-[280px] cursor-pointer transition-colors group">
-                    <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <span className="text-xl text-gray-600">+</span>
+                {/* Add New Card */}
+                {!loading && (
+                    <div
+                        onClick={openCreate}
+                        style={{ background: '#f9fafb', borderRadius: '16px', border: '2px dashed #d1d5db', minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'border-color 0.2s, background 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#c9a959'; e.currentTarget.style.background = '#fefce8'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#f9fafb'; }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px', fontSize: '1.5rem', color: '#9ca3af' }}>+</div>
+                        <p style={{ color: '#6b7280', fontWeight: 500, margin: 0 }}>Add New Category</p>
                     </div>
-                    <p className="font-medium text-gray-500 group-hover:text-gray-700 transition-colors">Add New Category</p>
-                </div>
+                )}
             </div>
+
+            {/* Create / Edit Modal */}
+            {showModal && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+                >
+                    <div style={{ background: 'white', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 700, color: '#1a1a2e', margin: '0 0 24px 0' }}>
+                            {editingCat ? 'Edit Category' : 'Add New Category'}
+                        </h2>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {[
+                                { label: 'Name (English) *', key: 'name', placeholder: 'e.g. Living Room', onChange: (v: string) => setForm(f => ({ ...f, name: v, slug: f.slug || slugify(v) })) },
+                                { label: 'Name (Arabic)', key: 'nameAr', placeholder: 'e.g. غرفة المعيشة' },
+                                { label: 'Slug *', key: 'slug', placeholder: 'e.g. living-room' },
+                            ].map((field) => (
+                                <div key={field.key}>
+                                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>{field.label}</label>
+                                    <input
+                                        value={form[field.key as keyof CategoryFormData] as string}
+                                        onChange={(e) => {
+                                            if (field.onChange) field.onChange(e.target.value);
+                                            else setForm(f => ({ ...f, [field.key]: e.target.value }));
+                                        }}
+                                        placeholder={field.placeholder}
+                                        style={{ width: '100%', padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }}
+                                        onFocus={(e) => e.target.style.borderColor = '#c9a959'}
+                                        onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                                    />
+                                </div>
+                            ))}
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <input
+                                    type="checkbox"
+                                    id="catActive"
+                                    checked={form.isActive}
+                                    onChange={(e) => setForm(f => ({ ...f, isActive: e.target.checked }))}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="catActive" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+                                    Active (visible on storefront)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{ flex: 1, padding: '12px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveCategory}
+                                disabled={saving}
+                                style={{ flex: 1, padding: '12px', background: saving ? '#9ca3af' : '#1a1a2e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}
+                            >
+                                {saving ? 'Saving...' : editingCat ? 'Save Changes' : 'Create Category'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
         </div>
     );
 }

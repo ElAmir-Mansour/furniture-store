@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
+import { toast } from 'react-hot-toast';
 
 interface CartItem {
     id: string;
@@ -35,8 +35,29 @@ interface Address {
     floor?: string;
     apartment?: string;
     phone: string;
-    isDefault?: boolean;
 }
+
+const FIELD: React.CSSProperties = {
+    display: 'flex', flexDirection: 'column', gap: '6px',
+};
+const LABEL: React.CSSProperties = {
+    fontSize: '0.7rem', fontWeight: 700, color: '#1a1a2e', textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+};
+const INPUT: React.CSSProperties = {
+    padding: '12px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px',
+    fontSize: '0.95rem', color: '#1a1a2e', background: 'white', outline: 'none',
+    width: '100%', transition: 'border-color 0.2s', boxSizing: 'border-box' as const,
+};
+const CARD: React.CSSProperties = {
+    background: 'white', borderRadius: '20px', border: '1px solid #e5e7eb',
+    padding: '36px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+};
+const BTN_PRIMARY: React.CSSProperties = {
+    display: 'block', width: '100%', padding: '16px', background: '#1a1a2e',
+    color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700,
+    fontSize: '1rem', cursor: 'pointer', textAlign: 'center' as const,
+    transition: 'background 0.2s, transform 0.1s', letterSpacing: '0.02em',
+};
 
 export default function CheckoutPage() {
     const t = useTranslations('checkout');
@@ -49,32 +70,22 @@ export default function CheckoutPage() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-
     const [cart, setCart] = useState<{ items: CartItem[]; subtotal: number; itemCount: number } | null>(null);
-    const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
-    const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-    const [showNewAddress, setShowNewAddress] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'wallet' | 'cod'>('cod');
-    const [promoDiscount, setPromoDiscount] = useState(0);
-    const [promoCode, setPromoCode] = useState('');
+    const [promoDiscount] = useState(0);
+    const [promoCode] = useState('');
 
-    const [newAddress, setNewAddress] = useState<Address>({
+    const isAr = locale === 'ar';
+
+    const [addr, setAddr] = useState<Address>({
         fullName: '',
-        label: locale === 'ar' ? 'المنزل' : 'Home',
-        governorate: locale === 'ar' ? 'القاهرة' : 'Cairo',
-        city: locale === 'ar' ? 'القاهرة' : 'Cairo',
-        district: '',
-        street: '',
-        building: '',
-        floor: '',
-        apartment: '',
-        phone: '',
+        label: isAr ? 'المنزل' : 'Home',
+        governorate: isAr ? 'القاهرة' : 'Cairo',
+        city: isAr ? 'القاهرة' : 'Cairo',
+        district: '', street: '', building: '', floor: '', apartment: '', phone: '',
     });
 
-    useEffect(() => {
-        fetchCart();
-        fetchAddresses();
-    }, []);
+    useEffect(() => { fetchCart(); }, []);
 
     async function fetchCart() {
         try {
@@ -82,351 +93,277 @@ export default function CheckoutPage() {
             const data = await res.json();
             if (data.success) {
                 setCart(data.data);
-                if (data.data.items.length === 0) {
-                    router.push(localePath('/cart'));
-                }
+                if (!data.data.items.length) router.push(localePath('/cart'));
             }
-        } catch (error) {
-            console.error('Failed to fetch cart:', error);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function fetchAddresses() {
-        setSavedAddresses([]);
-        setShowNewAddress(true);
+        } catch { toast.error('Failed to load cart'); }
+        finally { setLoading(false); }
     }
 
     async function handleSubmitOrder() {
-        if (!selectedAddress && !newAddress.street) {
-            alert(locale === 'ar' ? 'يرجى إدخال عنوان التوصيل' : 'Please provide a delivery address');
+        if (!addr.street || !addr.building || !addr.phone) {
+            toast.error(isAr ? 'يرجى إدخال عنوان التوصيل بالكامل' : 'Please complete your delivery address');
             return;
         }
-
         setSubmitting(true);
         try {
             const res = await fetch('/api/v1/checkout/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...(selectedAddress?.id ? { addressId: selectedAddress.id } : { newAddress }),
-                    paymentMethod,
-                    promoCode: promoCode || undefined,
-                }),
+                body: JSON.stringify({ newAddress: addr, paymentMethod, promoCode: promoCode || undefined }),
             });
-
             const data = await res.json();
-
             if (data.success) {
-                if (data.data.paymentUrl) {
-                    window.location.href = data.data.paymentUrl;
-                } else {
-                    router.push(`${localePath('/order-success')}?token=${data.data.trackingToken}`);
-                }
+                if (data.data.paymentUrl) window.location.href = data.data.paymentUrl;
+                else router.push(`${localePath('/order-success')}?token=${data.data.trackingToken}`);
             } else {
-                alert(data.error || (locale === 'ar' ? 'فشل في تقديم الطلب' : 'Failed to place order'));
+                toast.error(data.error || (isAr ? 'فشل في تقديم الطلب' : 'Failed to place order'));
             }
-        } catch (error) {
-            console.error('Failed to submit order:', error);
-            alert(locale === 'ar' ? 'حدث خطأ. يرجى المحاولة مرة أخرى.' : 'An error occurred. Please try again.');
+        } catch {
+            toast.error(isAr ? 'حدث خطأ.' : 'An error occurred.');
         } finally {
             setSubmitting(false);
         }
     }
 
-    const shipping = cart && cart.subtotal > 5000 ? 0 : 100;
-    const total = cart ? cart.subtotal - promoDiscount + shipping : 0;
+    const shipping = cart && cart.subtotal > 5000 ? 0 : 50;
+    const total = cart ? cart.subtotal - promoDiscount + (shipping ?? 0) : 0;
+    const steps = isAr ? ['التوصيل', 'الدفع', 'المراجعة'] : ['Delivery', 'Payment', 'Review'];
 
-    const steps = locale === 'ar'
-        ? ['التوصيل', 'الدفع', 'المراجعة']
-        : ['Delivery', 'Payment', 'Review'];
-
-    const paymentMethods = [
-        {
-            key: 'cod',
-            label: locale === 'ar' ? 'الدفع عند الاستلام' : 'Cash on Delivery',
-            desc: locale === 'ar' ? 'ادفع عند وصول طلبك' : 'Pay when your order arrives',
-            icon: '💵'
-        },
-        {
-            key: 'card',
-            label: locale === 'ar' ? 'بطاقة ائتمان / خصم' : 'Credit / Debit Card',
-            desc: locale === 'ar' ? 'فيزا، ماستركارد عبر Paymob' : 'Visa, Mastercard via Paymob',
-            icon: '💳'
-        },
-        {
-            key: 'wallet',
-            label: locale === 'ar' ? 'محفظة إلكترونية' : 'Mobile Wallet',
-            desc: locale === 'ar' ? 'فودافون كاش، أورانج موني، إلخ.' : 'Vodafone Cash, Orange Money, etc.',
-            icon: '📱'
-        },
+    const payMethods = [
+        { key: 'cod', label: isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery', desc: isAr ? 'ادفع عند وصول طلبك' : 'Pay when your order arrives', icon: '💵' },
+        { key: 'card', label: isAr ? 'بطاقة ائتمان / خصم' : 'Credit / Debit Card', desc: isAr ? 'فيزا، ماستركارد عبر Paymob' : 'Visa, Mastercard via Paymob', icon: '💳' },
+        { key: 'wallet', label: isAr ? 'محفظة إلكترونية' : 'Mobile Wallet', desc: isAr ? 'فودافون كاش' : 'Vodafone Cash, Orange Money', icon: '📱' },
     ];
 
-    const governorates = locale === 'ar'
-        ? ['القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'الغربية', 'المنوفية']
-        : ['Cairo', 'Giza', 'Alexandria', 'Dakahlia', 'Sharqia', 'Gharbia', 'Monufia'];
+    const govs = isAr
+        ? ['القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية']
+        : ['Cairo', 'Giza', 'Alexandria', 'Dakahlia', 'Sharqia'];
 
-    const labels = locale === 'ar'
-        ? ['المنزل', 'العمل', 'آخر']
-        : ['Home', 'Work', 'Other'];
+    const addrLabels = isAr ? ['المنزل', 'العمل', 'آخر'] : ['Home', 'Work', 'Other'];
 
+    const canProceed = addr.street.trim() && addr.building.trim() && addr.phone.trim();
+
+    /* Loading skeleton */
     if (loading) {
         return (
-            <div style={{ paddingTop: '40px', minHeight: '100vh' }}>
-                <div className="container" style={{ maxWidth: 900, margin: '0 auto' }}>
-                    <div className="skeleton" style={{ height: 400 }} />
+            <div style={{ minHeight: '100vh', background: '#f7f5f2', paddingTop: '100px' }}>
+                <div className="container" style={{ maxWidth: '1000px' }}>
+                    <div style={{ height: '400px', background: 'linear-gradient(90deg,#ede9e3 25%,#e5e0d8 50%,#ede9e3 75%)', borderRadius: '20px', animation: 'pulse 1.5s infinite' }} />
                 </div>
             </div>
         );
     }
 
     return (
-        <div style={{ paddingTop: '40px', minHeight: '100vh', background: 'var(--color-bg-alt)' }}>
-            <div className="container" style={{ maxWidth: 1100 }}>
-                <h1 style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
-                    marginBottom: 'var(--spacing-xl)',
-                }}>
+        <div style={{ minHeight: '100vh', background: '#f7f5f2', paddingTop: '100px', paddingBottom: '80px' }}>
+            <div className="container" style={{ maxWidth: '1080px' }}>
+                {/* Title */}
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem,4vw,2.75rem)', fontWeight: 700, color: '#1a1a2e', marginBottom: '40px' }}>
                     {t('title')}
                 </h1>
 
-                {/* Progress Steps */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    marginBottom: 'var(--spacing-2xl)',
-                }}>
-                    {steps.map((label, i) => (
-                        <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-                            <div
-                                onClick={() => i + 1 < step && setStep(i + 1)}
+                {/* Steps */}
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '48px', gap: '0' }}>
+                    {/* Connecting line */}
+                    <div style={{ position: 'absolute', top: '50%', left: '10%', right: '10%', height: '2px', background: '#e5e7eb', zIndex: 0, transform: 'translateY(-50%)' }}></div>
+                    {steps.map((label, i) => {
+                        const isDone = step > i + 1;
+                        const isActive = step === i + 1;
+                        return (
+                            <button
+                                key={label}
+                                onClick={() => isDone && setStep(i + 1)}
+                                disabled={!isDone}
                                 style={{
-                                    width: 36,
-                                    height: 36,
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: step > i ? 'var(--color-primary)' : step === i + 1 ? 'var(--color-secondary)' : 'var(--color-border)',
-                                    color: step >= i + 1 ? 'white' : 'var(--color-text-muted)',
-                                    fontWeight: 600,
-                                    cursor: i + 1 < step ? 'pointer' : 'default',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                    background: 'none', border: 'none', cursor: isDone ? 'pointer' : 'default',
+                                    flex: 1, position: 'relative', zIndex: 1,
                                 }}
                             >
-                                {step > i + 1 ? '✓' : i + 1}
-                            </div>
-                            <span style={{
-                                marginInlineStart: 8,
-                                marginInlineEnd: 24,
-                                color: step >= i + 1 ? 'var(--color-text)' : 'var(--color-text-muted)',
-                                fontWeight: step === i + 1 ? 600 : 400,
-                            }}>
-                                {label}
-                            </span>
-                            {i < 2 && (
                                 <div style={{
-                                    width: 60,
-                                    height: 2,
-                                    background: step > i + 1 ? 'var(--color-primary)' : 'var(--color-border)',
-                                    marginInlineEnd: 24,
-                                }} />
-                            )}
-                        </div>
-                    ))}
+                                    width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 700, fontSize: '0.9rem', transition: 'all 0.3s',
+                                    background: isDone ? '#1a1a2e' : isActive ? '#c9a959' : 'white',
+                                    color: (isDone || isActive) ? 'white' : '#9ca3af',
+                                    border: `2px solid ${isDone ? '#1a1a2e' : isActive ? '#c9a959' : '#e5e7eb'}`,
+                                    boxShadow: isActive ? '0 0 0 4px rgba(201,169,89,0.2)' : 'none',
+                                }}>
+                                    {isDone ? '✓' : i + 1}
+                                </div>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: (isDone || isActive) ? '#1a1a2e' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    {label}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 'var(--spacing-2xl)' }}>
-                    {/* Main Content */}
+                {/* Main 2-col layout */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '28px', alignItems: 'start' }}>
+
+                    {/* LEFT: Steps */}
                     <div>
                         {/* Step 1: Address */}
                         {step === 1 && (
-                            <div style={{
-                                background: 'var(--color-bg)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: 'var(--spacing-xl)',
-                            }}>
-                                <h2 style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                    {locale === 'ar' ? 'عنوان التوصيل' : 'Delivery Address'}
+                            <div style={CARD}>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '28px' }}>
+                                    {isAr ? 'عنوان التوصيل' : 'Delivery Address'}
                                 </h2>
 
-                                {(showNewAddress || savedAddresses.length === 0) && (
-                                    <div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'الاسم بالكامل *' : 'Full Name *'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.fullName || ''}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, fullName: e.target.value }))}
-                                                    placeholder={locale === 'ar' ? 'الاسم الثلاثي' : 'John Doe'}
-                                                />
-                                            </div>
-                                        </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {/* Full Name */}
+                                    <div style={FIELD}>
+                                        <label style={LABEL}>{isAr ? 'الاسم بالكامل *' : 'Full Name *'}</label>
+                                        <input style={INPUT} value={addr.fullName || ''} placeholder={isAr ? 'الاسم الثلاثي' : 'John Doe'}
+                                            onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                            onChange={e => setAddr(p => ({ ...p, fullName: e.target.value }))} />
+                                    </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'التسمية *' : 'Label *'}</label>
-                                                <select
-                                                    className="input"
-                                                    value={newAddress.label}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, label: e.target.value }))}
-                                                >
-                                                    {labels.map(l => <option key={l}>{l}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'المحافظة *' : 'Governorate *'}</label>
-                                                <select
-                                                    className="input"
-                                                    value={newAddress.governorate}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, governorate: e.target.value }))}
-                                                >
-                                                    {governorates.map(g => <option key={g}>{g}</option>)}
-                                                </select>
-                                            </div>
+                                    {/* Label + Governorate */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'التسمية *' : 'Label *'}</label>
+                                            <select style={INPUT} value={addr.label}
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, label: e.target.value }))}>
+                                                {addrLabels.map(l => <option key={l}>{l}</option>)}
+                                            </select>
                                         </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'المدينة *' : 'City *'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.city}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, city: e.target.value }))}
-                                                    placeholder={locale === 'ar' ? 'مثال: مدينة نصر' : 'e.g., Nasr City'}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'الحي *' : 'District *'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.district}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, district: e.target.value }))}
-                                                    placeholder={locale === 'ar' ? 'مثال: الحي العاشر' : 'e.g., 10th Zone'}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ marginTop: 'var(--spacing-md)' }}>
-                                            <label style={labelStyle}>{locale === 'ar' ? 'عنوان الشارع *' : 'Street Address *'}</label>
-                                            <input
-                                                className="input"
-                                                value={newAddress.street}
-                                                onChange={(e) => setNewAddress(prev => ({ ...prev, street: e.target.value }))}
-                                                placeholder={locale === 'ar' ? 'اسم ورقم الشارع' : 'Street name and number'}
-                                            />
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'المبنى *' : 'Building *'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.building}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, building: e.target.value }))}
-                                                    placeholder="20"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'الطابق' : 'Floor'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.floor}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, floor: e.target.value }))}
-                                                    placeholder="5"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>{locale === 'ar' ? 'الشقة' : 'Apartment'}</label>
-                                                <input
-                                                    className="input"
-                                                    value={newAddress.apartment}
-                                                    onChange={(e) => setNewAddress(prev => ({ ...prev, apartment: e.target.value }))}
-                                                    placeholder="12"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ marginTop: 'var(--spacing-md)' }}>
-                                            <label style={labelStyle}>{locale === 'ar' ? 'رقم الهاتف *' : 'Phone Number *'}</label>
-                                            <input
-                                                className="input"
-                                                type="tel"
-                                                value={newAddress.phone}
-                                                onChange={(e) => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
-                                                placeholder="01XXXXXXXXX"
-                                            />
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'المحافظة *' : 'Governorate *'}</label>
+                                            <select style={INPUT} value={addr.governorate}
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, governorate: e.target.value }))}>
+                                                {govs.map(g => <option key={g}>{g}</option>)}
+                                            </select>
                                         </div>
                                     </div>
-                                )}
+
+                                    {/* City + District */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'المدينة *' : 'City *'}</label>
+                                            <input style={INPUT} value={addr.city} placeholder={isAr ? 'مدينة نصر' : 'Nasr City'}
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, city: e.target.value }))} />
+                                        </div>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'الحي *' : 'District *'}</label>
+                                            <input style={INPUT} value={addr.district} placeholder={isAr ? 'الحي العاشر' : '10th Zone'}
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, district: e.target.value }))} />
+                                        </div>
+                                    </div>
+
+                                    {/* Street */}
+                                    <div style={FIELD}>
+                                        <label style={LABEL}>{isAr ? 'عنوان الشارع *' : 'Street Address *'}</label>
+                                        <input style={INPUT} value={addr.street} placeholder={isAr ? 'اسم ورقم الشارع' : 'Street name and number'}
+                                            onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                            onChange={e => setAddr(p => ({ ...p, street: e.target.value }))} />
+                                    </div>
+
+                                    {/* Building + Floor + Apt */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'المبنى *' : 'Building *'}</label>
+                                            <input style={INPUT} value={addr.building} placeholder="20"
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, building: e.target.value }))} />
+                                        </div>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'الطابق' : 'Floor'}</label>
+                                            <input style={INPUT} value={addr.floor || ''} placeholder="5"
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, floor: e.target.value }))} />
+                                        </div>
+                                        <div style={FIELD}>
+                                            <label style={LABEL}>{isAr ? 'الشقة' : 'Apartment'}</label>
+                                            <input style={INPUT} value={addr.apartment || ''} placeholder="12"
+                                                onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                                onChange={e => setAddr(p => ({ ...p, apartment: e.target.value }))} />
+                                        </div>
+                                    </div>
+
+                                    {/* Phone */}
+                                    <div style={FIELD}>
+                                        <label style={LABEL}>{isAr ? 'رقم الهاتف *' : 'Phone Number *'}</label>
+                                        <input style={INPUT} type="tel" value={addr.phone} placeholder="01XXXXXXXXX"
+                                            onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                                            onChange={e => setAddr(p => ({ ...p, phone: e.target.value }))} />
+                                    </div>
+                                </div>
 
                                 <button
+                                    style={{ ...BTN_PRIMARY, marginTop: '28px', opacity: canProceed ? 1 : 0.5, cursor: canProceed ? 'pointer' : 'not-allowed' }}
+                                    disabled={!canProceed}
                                     onClick={() => setStep(2)}
-                                    className="btn btn-primary btn-lg"
-                                    style={{ width: '100%', marginTop: 'var(--spacing-xl)' }}
-                                    disabled={!newAddress.street || !newAddress.building || !newAddress.phone}
+                                    onMouseEnter={e => { if (canProceed) e.currentTarget.style.background = '#c9a959'; }}
+                                    onMouseLeave={e => { if (canProceed) e.currentTarget.style.background = '#1a1a2e'; }}
                                 >
-                                    {locale === 'ar' ? 'المتابعة للدفع' : 'Continue to Payment'}
+                                    {isAr ? 'المتابعة للدفع →' : 'Continue to Payment →'}
                                 </button>
                             </div>
                         )}
 
                         {/* Step 2: Payment */}
                         {step === 2 && (
-                            <div style={{
-                                background: 'var(--color-bg)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: 'var(--spacing-xl)',
-                            }}>
-                                <h2 style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                    {locale === 'ar' ? 'طريقة الدفع' : 'Payment Method'}
+                            <div style={CARD}>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '28px' }}>
+                                    {isAr ? 'طريقة الدفع' : 'Payment Method'}
                                 </h2>
 
-                                {paymentMethods.map((method) => (
-                                    <div
-                                        key={method.key}
-                                        onClick={() => setPaymentMethod(method.key as 'card' | 'wallet' | 'cod')}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 'var(--spacing-lg)',
-                                            padding: 'var(--spacing-lg)',
-                                            border: paymentMethod === method.key
-                                                ? '2px solid var(--color-primary)'
-                                                : '1px solid var(--color-border)',
-                                            borderRadius: 'var(--radius-md)',
-                                            marginBottom: 'var(--spacing-md)',
-                                            cursor: 'pointer',
-                                            background: paymentMethod === method.key ? 'rgba(26, 35, 50, 0.03)' : 'transparent',
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '2rem' }}>{method.icon}</span>
-                                        <div>
-                                            <strong>{method.label}</strong>
-                                            <p style={{ color: 'var(--color-text-muted)', margin: 0, fontSize: '0.875rem' }}>
-                                                {method.desc}
-                                            </p>
-                                        </div>
-                                        <div style={{
-                                            marginInlineStart: 'auto',
-                                            width: 24,
-                                            height: 24,
-                                            borderRadius: '50%',
-                                            border: paymentMethod === method.key
-                                                ? '8px solid var(--color-primary)'
-                                                : '2px solid var(--color-border)',
-                                        }} />
-                                    </div>
-                                ))}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {payMethods.map((method) => {
+                                        const active = paymentMethod === method.key;
+                                        return (
+                                            <button
+                                                key={method.key}
+                                                onClick={() => setPaymentMethod(method.key as 'card' | 'wallet' | 'cod')}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: '16px', padding: '20px',
+                                                    border: active ? '2px solid #1a1a2e' : '1.5px solid #e5e7eb',
+                                                    borderRadius: '14px', background: active ? '#f9f8f5' : 'white',
+                                                    cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
+                                                    boxShadow: active ? '0 4px 12px rgba(26,26,46,0.08)' : 'none',
+                                                }}
+                                            >
+                                                <span style={{ fontSize: '2rem', flexShrink: 0 }}>{method.icon}</span>
+                                                <div style={{ flex: 1, textAlign: 'left' }}>
+                                                    <strong style={{ display: 'block', color: '#1a1a2e', fontWeight: 700, marginBottom: '2px' }}>{method.label}</strong>
+                                                    <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: 0 }}>{method.desc}</p>
+                                                </div>
+                                                <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: active ? '2px solid #1a1a2e' : '2px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    {active && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#1a1a2e' }} />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>
-                                    <button onClick={() => setStep(1)} className="btn btn-outline btn-lg">
-                                        {locale === 'ar' ? 'رجوع' : 'Back'}
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+                                    <button onClick={() => setStep(1)} style={{ flex: '0 0 auto', padding: '14px 24px', border: '2px solid #1a1a2e', background: 'transparent', color: '#1a1a2e', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#1a1a2e'; e.currentTarget.style.color = 'white'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1a1a2e'; }}
+                                    >
+                                        ← {isAr ? 'رجوع' : 'Back'}
                                     </button>
-                                    <button onClick={() => setStep(3)} className="btn btn-primary btn-lg" style={{ flex: 1 }}>
-                                        {locale === 'ar' ? 'المتابعة للمراجعة' : 'Continue to Review'}
+                                    <button onClick={() => setStep(3)}
+                                        style={{ ...BTN_PRIMARY, flex: 1 }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#c9a959'}
+                                        onMouseLeave={e => e.currentTarget.style.background = '#1a1a2e'}
+                                    >
+                                        {isAr ? 'المتابعة للمراجعة →' : 'Continue to Review →'}
                                     </button>
                                 </div>
                             </div>
@@ -434,175 +371,139 @@ export default function CheckoutPage() {
 
                         {/* Step 3: Review */}
                         {step === 3 && (
-                            <div style={{
-                                background: 'var(--color-bg)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: 'var(--spacing-xl)',
-                            }}>
-                                <h2 style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                    {locale === 'ar' ? 'مراجعة طلبك' : 'Review Your Order'}
+                            <div style={CARD}>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '28px' }}>
+                                    {isAr ? 'مراجعة طلبك' : 'Review Your Order'}
                                 </h2>
 
                                 {/* Address Summary */}
-                                <div style={{
-                                    padding: 'var(--spacing-lg)',
-                                    background: 'var(--color-bg-alt)',
-                                    borderRadius: 'var(--radius-md)',
-                                    marginBottom: 'var(--spacing-lg)',
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                        <strong>{locale === 'ar' ? 'عنوان التوصيل' : 'Delivery Address'}</strong>
-                                        <button onClick={() => setStep(1)} style={{ color: 'var(--color-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                <div style={{ background: '#f9f8f5', borderRadius: '14px', padding: '20px', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <strong style={{ color: '#1a1a2e', fontWeight: 700 }}>{isAr ? 'عنوان التوصيل' : 'Delivery Address'}</strong>
+                                        <button onClick={() => setStep(1)} style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c9a959', background: 'none', border: 'none', cursor: 'pointer' }}>
                                             {tCommon('edit')}
                                         </button>
                                     </div>
-                                    <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
-                                        {newAddress.street}, {newAddress.building}, {newAddress.district}, {newAddress.city}, {newAddress.governorate}
-                                        <br />
-                                        {locale === 'ar' ? 'الهاتف:' : 'Phone:'} {newAddress.phone}
+                                    <p style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                                        {addr.fullName && <strong style={{ color: '#1a1a2e' }}>{addr.fullName}<br /></strong>}
+                                        {addr.street}, {addr.building}, {addr.district}, {addr.city}, {addr.governorate}
+                                        <br /><span style={{ fontWeight: 600, color: '#1a1a2e' }}>{isAr ? 'الهاتف:' : 'Phone:'}</span> {addr.phone}
                                     </p>
                                 </div>
 
                                 {/* Payment Summary */}
-                                <div style={{
-                                    padding: 'var(--spacing-lg)',
-                                    background: 'var(--color-bg-alt)',
-                                    borderRadius: 'var(--radius-md)',
-                                    marginBottom: 'var(--spacing-lg)',
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                        <strong>{locale === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</strong>
-                                        <button onClick={() => setStep(2)} style={{ color: 'var(--color-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                <div style={{ background: '#f9f8f5', borderRadius: '14px', padding: '20px', marginBottom: '24px', border: '1px solid #e5e7eb' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <strong style={{ color: '#1a1a2e', fontWeight: 700 }}>{isAr ? 'طريقة الدفع' : 'Payment Method'}</strong>
+                                        <button onClick={() => setStep(2)} style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c9a959', background: 'none', border: 'none', cursor: 'pointer' }}>
                                             {tCommon('edit')}
                                         </button>
                                     </div>
-                                    <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
-                                        {paymentMethods.find(m => m.key === paymentMethod)?.label}
+                                    <p style={{ color: '#6b7280', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, margin: 0 }}>
+                                        <span style={{ fontSize: '1.5rem' }}>{payMethods.find(m => m.key === paymentMethod)?.icon}</span>
+                                        {payMethods.find(m => m.key === paymentMethod)?.label}
                                     </p>
                                 </div>
 
-                                {/* Order Items */}
-                                <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                    <strong style={{ marginBottom: 'var(--spacing-md)', display: 'block' }}>
-                                        {locale === 'ar' ? 'محتويات الطلب' : 'Order Items'}
+                                {/* Items */}
+                                <div style={{ marginBottom: '28px' }}>
+                                    <strong style={{ display: 'block', color: '#9ca3af', fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
+                                        {isAr ? 'محتويات الطلب' : 'Order Items'}
                                     </strong>
-                                    {cart?.items.map((item) => (
-                                        <div key={item.id} style={{
-                                            display: 'flex',
-                                            gap: 'var(--spacing-md)',
-                                            padding: 'var(--spacing-md) 0',
-                                            borderBottom: '1px solid var(--color-border)',
-                                        }}>
-                                            <div className="relative w-[60px] h-[60px] shrink-0 rounded-md overflow-hidden bg-[#f7f5f2]">
-                                                <Image
-                                                    src={item.variant.product.images[0]?.thumbnailUrl || 'https://via.placeholder.com/60'}
-                                                    alt={item.variant.product.name}
-                                                    fill
-                                                    sizes="60px"
-                                                    className="object-cover"
-                                                />
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {cart?.items.map((item) => (
+                                            <div key={item.id} style={{ display: 'flex', gap: '14px', padding: '14px', border: '1px solid #e5e7eb', borderRadius: '12px', background: 'white', alignItems: 'center' }}>
+                                                <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', background: '#f7f5f2', position: 'relative', flexShrink: 0 }}>
+                                                    <Image src={item.variant.product.images[0]?.thumbnailUrl || 'https://via.placeholder.com/56'} alt={item.variant.product.name} fill sizes="56px" style={{ objectFit: 'cover' }} />
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ fontWeight: 700, color: '#1a1a2e', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {item.variant.product.name}
+                                                    </p>
+                                                    <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                        {item.variant.name} · Qty: {item.quantity}
+                                                    </p>
+                                                </div>
+                                                <span style={{ fontWeight: 700, color: '#c9a959', whiteSpace: 'nowrap' }}>
+                                                    {Number(item.itemTotal).toLocaleString()} {tCommon('egp')}
+                                                </span>
                                             </div>
-                                            <div style={{ flex: 1 }}>
-                                                <p style={{ margin: 0, fontWeight: 500 }}>{item.variant.product.name}</p>
-                                                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                                                    {item.variant.name} × {item.quantity}
-                                                </p>
-                                            </div>
-                                            <span style={{ fontWeight: 500 }}>{item.itemTotal.toLocaleString()} {tCommon('egp')}</span>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-                                    <button onClick={() => setStep(2)} className="btn btn-outline btn-lg">
-                                        {locale === 'ar' ? 'رجوع' : 'Back'}
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button onClick={() => setStep(2)} style={{ flex: '0 0 auto', padding: '14px 24px', border: '2px solid #1a1a2e', background: 'transparent', color: '#1a1a2e', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#1a1a2e'; e.currentTarget.style.color = 'white'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1a1a2e'; }}
+                                    >
+                                        ← {isAr ? 'رجوع' : 'Back'}
                                     </button>
                                     <button
                                         onClick={handleSubmitOrder}
                                         disabled={submitting}
-                                        className="btn btn-primary btn-lg"
-                                        style={{ flex: 1 }}
+                                        style={{ ...BTN_PRIMARY, flex: 1, background: submitting ? '#9ca3af' : '#1a1a2e', cursor: submitting ? 'not-allowed' : 'pointer' }}
+                                        onMouseEnter={e => { if (!submitting) e.currentTarget.style.background = '#c9a959'; }}
+                                        onMouseLeave={e => { if (!submitting) e.currentTarget.style.background = submitting ? '#9ca3af' : '#1a1a2e'; }}
                                     >
                                         {submitting
-                                            ? (locale === 'ar' ? 'جاري المعالجة...' : 'Processing...')
-                                            : `${locale === 'ar' ? 'تأكيد الطلب' : 'Place Order'} - ${total.toLocaleString()} ${tCommon('egp')}`
-                                        }
+                                            ? (isAr ? 'جاري المعالجة...' : 'Processing...')
+                                            : `${isAr ? 'تأكيد الطلب' : 'Place Order'} — ${total.toLocaleString()} ${tCommon('egp')}`}
                                     </button>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Order Summary */}
-                    <div>
-                        <div style={{
-                            background: 'var(--color-bg)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-xl)',
-                            position: 'sticky',
-                            top: 100,
-                        }}>
-                            <h3 style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                {locale === 'ar' ? 'ملخص الطلب' : 'Order Summary'}
+                    {/* RIGHT: Order Summary */}
+                    <div style={{ position: 'sticky', top: '100px' }}>
+                        <div style={CARD}>
+                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '20px' }}>
+                                {isAr ? 'ملخص الطلب' : 'Order Summary'}
                             </h3>
 
-                            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                            {/* Items list */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                                 {cart?.items.slice(0, 3).map((item) => (
-                                    <div key={item.id} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        fontSize: '0.875rem',
-                                        marginBottom: 8,
-                                    }}>
-                                        <span style={{ color: 'var(--color-text-muted)' }}>
-                                            {item.variant.product.name} × {item.quantity}
+                                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '0.85rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                            {item.quantity}× {item.variant.product.name}
                                         </span>
-                                        <span>{item.itemTotal.toLocaleString()} {tCommon('egp')}</span>
+                                        <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                                            {Number(item.itemTotal).toLocaleString()} {tCommon('egp')}
+                                        </span>
                                     </div>
                                 ))}
                                 {cart && cart.items.length > 3 && (
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                                        +{cart.items.length - 3} {locale === 'ar' ? 'منتجات أخرى' : 'more items'}
+                                    <p style={{ fontSize: '0.8rem', color: '#c9a959', fontWeight: 700 }}>
+                                        +{cart.items.length - 3} {isAr ? 'منتجات أخرى' : 'more items'}
                                     </p>
                                 )}
                             </div>
 
-                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                    <span style={{ color: 'var(--color-text-muted)' }}>{tCart('subtotal')}</span>
-                                    <span>{cart?.subtotal.toLocaleString()} {tCommon('egp')}</span>
+                            {/* Totals */}
+                            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>{tCart('subtotal')}</span>
+                                    <span style={{ fontWeight: 600, color: '#1a1a2e' }}>{cart?.subtotal.toLocaleString()} {tCommon('egp')}</span>
                                 </div>
-                                {promoDiscount > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: 'var(--color-success)' }}>
-                                        <span>{locale === 'ar' ? 'الخصم' : 'Discount'}</span>
-                                        <span>-{promoDiscount.toLocaleString()} {tCommon('egp')}</span>
-                                    </div>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                    <span style={{ color: 'var(--color-text-muted)' }}>{tCart('shipping')}</span>
-                                    <span>{shipping === 0 ? tCart('freeShipping') : `${shipping} ${tCommon('egp')}`}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>{tCart('shipping')}</span>
+                                    <span style={{ fontWeight: 600, color: shipping === 0 ? '#10b981' : '#1a1a2e', fontSize: shipping === 0 ? '0.75rem' : 'inherit', textTransform: shipping === 0 ? 'uppercase' : 'none' }}>
+                                        {shipping === 0 ? (isAr ? 'مجاني' : 'FREE') : `${shipping} ${tCommon('egp')}`}
+                                    </span>
                                 </div>
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    paddingTop: 'var(--spacing-md)',
-                                    borderTop: '1px solid var(--color-border)',
-                                    fontWeight: 600,
-                                    fontSize: '1.25rem',
-                                }}>
-                                    <span>{tCart('total')}</span>
-                                    <span>{total.toLocaleString()} {tCommon('egp')}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #f3f4f6', paddingTop: '16px' }}>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.15rem', color: '#1a1a2e' }}>{tCart('total')}</span>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: '#c9a959' }}>{total.toLocaleString()} {tCommon('egp')}</span>
                                 </div>
                             </div>
 
-                            <Link href={localePath('/cart')} style={{
-                                display: 'block',
-                                textAlign: 'center',
-                                marginTop: 'var(--spacing-lg)',
-                                fontSize: '0.875rem',
-                                color: 'var(--color-text-muted)',
-                            }}>
-                                {locale === 'ar' ? '← العودة للسلة' : '← Back to Cart'}
+                            <Link href={localePath('/cart')} style={{ display: 'block', textAlign: 'center', marginTop: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = '#1a1a2e'}
+                                onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+                            >
+                                ← {isAr ? 'العودة للسلة' : 'Back to Cart'}
                             </Link>
                         </div>
                     </div>
@@ -611,11 +512,3 @@ export default function CheckoutPage() {
         </div>
     );
 }
-
-const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    marginBottom: 'var(--spacing-xs)',
-    color: 'var(--color-text-muted)',
-};

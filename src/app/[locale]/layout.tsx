@@ -7,7 +7,9 @@ import { Playfair_Display, Inter } from 'next/font/google';
 import '../globals.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { Toaster } from 'react-hot-toast';
+import { NavbarWrapper, SpacerWrapper, FooterWrapper } from '@/components/AdminLayoutFixer';
 
 const playfair = Playfair_Display({
     subsets: ['latin'],
@@ -35,15 +37,11 @@ export default async function LocaleLayout({
 }) {
     const { locale } = await params;
 
-    // Validate locale
     if (!routing.locales.includes(locale as 'en' | 'ar')) {
         notFound();
     }
 
-    // Get messages for the locale
     const messages = await getMessages();
-
-    // Determine text direction
     const dir = locale === 'ar' ? 'rtl' : 'ltr';
 
     return (
@@ -51,10 +49,19 @@ export default async function LocaleLayout({
             <body className={`${playfair.variable} ${inter.variable} font-body bg-bg text-text`} suppressHydrationWarning>
                 <SessionProvider>
                     <NextIntlClientProvider messages={messages}>
-                        <Navbar />
-                        <main style={{ paddingTop: 80 }}>
+                        {/* NavbarWrapper auto-hides on /admin routes */}
+                        <NavbarWrapper>
+                            <Navbar />
+                        </NavbarWrapper>
+                        {/* Spacer auto-hides on /admin routes */}
+                        <SpacerWrapper />
+                        <main>
                             {children}
                         </main>
+                        {/* Footer auto-hides on /admin routes */}
+                        <FooterWrapper>
+                            <Footer />
+                        </FooterWrapper>
                         <Toaster position="bottom-right" />
                     </NextIntlClientProvider>
                 </SessionProvider>

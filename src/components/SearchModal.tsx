@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 interface Product {
     id: string;
@@ -18,6 +19,7 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
+    const locale = useLocale();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
@@ -163,7 +165,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             {results.map((product) => (
                                 <Link
                                     key={product.id}
-                                    href={`/products/${product.slug}`}
+                                    href={`/${locale}/products/${product.slug}`}
                                     onClick={onClose}
                                     style={{
                                         display: 'flex',

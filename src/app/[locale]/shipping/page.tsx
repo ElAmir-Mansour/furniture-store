@@ -23,89 +23,57 @@ export default function ShippingPage() {
     return (
         <div>
             {/* Hero */}
-            <section style={{
-                background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-                color: 'white',
-                padding: '80px 0',
-                textAlign: 'center',
-            }}>
+            <section style={{ background: '#1a1a2e', color: 'white', padding: '80px 0', textAlign: 'center' }}>
                 <div className="container">
-                    <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', marginBottom: '16px' }}>{t('title')}</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.7)' }}>{t('subtitle')}</p>
+                    <span style={{ fontSize: '3rem', display: 'block', marginBottom: '16px' }}>🚚</span>
+                    <h1 className="font-display" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, marginBottom: '16px', color: 'white' }}>{t('title')}</h1>
+                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1.1rem', maxWidth: '480px', margin: '0 auto' }}>{t('subtitle')}</p>
                 </div>
             </section>
 
-            {/* Shipping Options */}
-            <section style={{ padding: '80px 0' }}>
+            {/* Free Shipping Banner */}
+            <section className="bg-secondary/10 border-y border-secondary/20 py-5 text-center">
                 <div className="container">
-                    <h2 style={{ fontSize: '1.75rem', textAlign: 'center', marginBottom: '48px', color: '#1f2937' }}>
-                        {t('options')}
-                    </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-                        {shippingOptions.map((option, i) => (
-                            <div key={i} style={{
-                                background: 'white',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '16px',
-                                padding: '32px',
-                                textAlign: 'center',
-                            }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>{option.icon}</div>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '8px', color: '#1f2937' }}>
-                                    {option.type}
-                                </h3>
-                                <p style={{ color: '#6b7280', marginBottom: '16px' }}>{option.time}</p>
-                                <div style={{
-                                    display: 'inline-block',
-                                    padding: '8px 24px',
-                                    background: '#f9fafb',
-                                    borderRadius: '20px',
-                                    fontWeight: 600,
-                                    color: '#b8860b',
-                                }}>
-                                    {option.price}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <p style={{ textAlign: 'center', marginTop: '24px', color: '#10b981', fontWeight: 500 }}>
-                        {locale === 'ar' ? '🎉 شحن مجاني للطلبات فوق 5,000 جنيه' : '🎉 Free shipping on orders over 5,000 EGP'}
+                    <p className="text-secondary font-bold text-lg">
+                        🎉 {locale === 'ar' ? 'شحن مجاني للطلبات فوق 5,000 جنيه' : 'Free shipping on orders over 5,000 EGP'}
                     </p>
                 </div>
             </section>
 
-            {/* Delivery Process */}
-            <section style={{ padding: '80px 0', background: '#f9fafb' }}>
+            {/* Shipping Options */}
+            <section className="section bg-bg-alt">
                 <div className="container">
-                    <h2 style={{ fontSize: '1.75rem', textAlign: 'center', marginBottom: '48px', color: '#1f2937' }}>
-                        {t('deliveryProcess')}
-                    </h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: 700, margin: '0 auto' }}>
+                    <div className="text-center mb-12">
+                        <h2 className="font-display text-3xl font-bold text-primary">{t('options')}</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {shippingOptions.map((option, i) => (
+                            <div key={i} className="bg-white rounded-2xl border border-border-light p-8 text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+                                <div className="text-5xl mb-5">{option.icon}</div>
+                                <h3 className="font-display text-xl font-bold text-primary mb-2">{option.type}</h3>
+                                <p className="text-text-muted mb-5">{option.time}</p>
+                                <span className="inline-block px-6 py-2 bg-secondary/10 rounded-full font-bold text-secondary">
+                                    {option.price}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Delivery Process */}
+            <section className="section bg-bg">
+                <div className="container max-w-2xl">
+                    <h2 className="font-display text-3xl font-bold text-primary text-center mb-12">{t('deliveryProcess')}</h2>
+                    <div className="space-y-8">
                         {deliverySteps.map((step, i) => (
-                            <div key={i} style={{
-                                display: 'flex',
-                                gap: '20px',
-                                alignItems: 'flex-start',
-                            }}>
-                                <div style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: '50%',
-                                    background: '#1f2937',
-                                    color: 'white',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '1.25rem',
-                                    flexShrink: 0,
-                                }}>
+                            <div key={i} className="flex gap-5 items-start">
+                                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl shrink-0 shadow-md">
                                     {step.icon}
                                 </div>
-                                <div>
-                                    <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '8px', color: '#1f2937' }}>
-                                        {step.title}
-                                    </h3>
-                                    <p style={{ color: '#6b7280', lineHeight: 1.7 }}>{step.desc}</p>
+                                <div className="pt-1">
+                                    <h3 className="font-display text-lg font-bold text-primary mb-1">{step.title}</h3>
+                                    <p className="text-text-muted leading-relaxed">{step.desc}</p>
                                 </div>
                             </div>
                         ))}
@@ -113,33 +81,20 @@ export default function ShippingPage() {
                 </div>
             </section>
 
-            {/* Assembly Service */}
-            <section style={{ padding: '80px 0' }}>
-                <div className="container" style={{ textAlign: 'center', maxWidth: 700 }}>
-                    <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🛠️</div>
-                    <h2 style={{ fontSize: '1.75rem', marginBottom: '16px', color: '#1f2937' }}>{t('assembly')}</h2>
-                    <p style={{ color: '#6b7280', lineHeight: 1.8 }}>{t('assemblyDesc')}</p>
+            {/* Assembly Section */}
+            <section className="section bg-bg-alt text-center">
+                <div className="container max-w-xl">
+                    <div className="text-6xl mb-6">🛠️</div>
+                    <h2 className="font-display text-3xl font-bold text-primary mb-4">{t('assembly')}</h2>
+                    <p className="text-text-muted leading-relaxed">{t('assemblyDesc')}</p>
                 </div>
             </section>
 
             {/* CTA */}
-            <section style={{
-                background: 'linear-gradient(135deg, #b8860b 0%, #d4a853 100%)',
-                padding: '60px 0',
-                textAlign: 'center',
-            }}>
-                <div className="container">
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '12px', color: 'white' }}>{t('questionsShipping')}</h2>
-                    <Link href={`/${locale}/contact`} style={{
-                        display: 'inline-block',
-                        marginTop: '16px',
-                        padding: '14px 32px',
-                        background: '#1f2937',
-                        color: 'white',
-                        borderRadius: '8px',
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                    }}>
+            <section style={{ background: '#c9a959', padding: '80px 0', textAlign: 'center' }}>
+                <div className="container" style={{ maxWidth: '640px' }}>
+                    <h2 className="font-display" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 700, color: '#1a1a2e', marginBottom: '24px' }}>{t('questionsShipping')}</h2>
+                    <Link href={`/${locale}/contact`} style={{ display: 'inline-block', background: '#1a1a2e', color: 'white', padding: '14px 36px', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '1rem' }}>
                         {t('contactSupport')}
                     </Link>
                 </div>

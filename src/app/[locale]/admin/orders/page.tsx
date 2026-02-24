@@ -1,189 +1,275 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 interface Order {
     id: string;
     orderNumber: string;
-    customer: { name: string; email: string };
+    shippingName?: string;
+    shippingEmail?: string;
+    shippingPhone?: string;
     total: number;
     status: string;
-    paymentMethod: string;
-    itemCount: number;
+    paymentMethod?: string;
+    items: Array<{ id: string }>;
     createdAt: string;
+    user?: { name: string; email: string };
 }
 
+const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+    PENDING: { bg: '#fffbeb', color: '#d97706' },
+    CONFIRMED: { bg: '#eff6ff', color: '#2563eb' },
+    PROCESSING: { bg: '#f5f3ff', color: '#7c3aed' },
+    SHIPPED: { bg: '#ecfeff', color: '#0891b2' },
+    DELIVERED: { bg: '#ecfdf5', color: '#059669' },
+    CANCELLED: { bg: '#fef2f2', color: '#dc2626' },
+};
+
+const STATUS_NEXT: Record<string, { label: string; next: string; bg: string; color: string }> = {
+    PENDING: { label: 'Confirm', next: 'CONFIRMED', bg: '#1a1a2e', color: 'white' },
+    CONFIRMED: { label: 'Process', next: 'PROCESSING', bg: '#7c3aed', color: 'white' },
+    PROCESSING: { label: 'Ship', next: 'SHIPPED', bg: '#0891b2', color: 'white' },
+    SHIPPED: { label: 'Deliver', next: 'DELIVERED', bg: '#059669', color: 'white' },
+};
+
+const TABS = [
+    { key: 'all', label: 'All Orders' },
+    { key: 'PENDING', label: 'Pending' },
+    { key: 'CONFIRMED', label: 'Confirmed' },
+    { key: 'PROCESSING', label: 'Processing' },
+    { key: 'SHIPPED', label: 'Shipped' },
+    { key: 'DELIVERED', label: 'Delivered' },
+    { key: 'CANCELLED', label: 'Cancelled' },
+];
+
 export default function AdminOrdersPage() {
+    const searchParams = useSearchParams();
+    const initialStatus = searchParams.get('status') || 'all';
+
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
+    const [filter, setFilter] = useState(initialStatus);
+    const [search, setSearch] = useState('');
+    const [updating, setUpdating] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchOrders();
-    }, [filter]);
-
-    async function fetchOrders() {
+    const fetchOrders = useCallback(async () => {
         setLoading(true);
-        // Mock data for now - replace with actual API call
-        setTimeout(() => {
-            setOrders([
-                { id: '1', orderNumber: 'ORD-2026-001', customer: { name: 'Ahmed Mohamed', email: 'ahmed@example.com' }, total: 24500, status: 'PENDING', paymentMethod: 'COD', itemCount: 2, createdAt: '2026-01-28T22:30:00Z' },
-                { id: '2', orderNumber: 'ORD-2026-002', customer: { name: 'Sara Hassan', email: 'sara@example.com' }, total: 18500, status: 'CONFIRMED', paymentMethod: 'CARD', itemCount: 1, createdAt: '2026-01-28T21:15:00Z' },
-                { id: '3', orderNumber: 'ORD-2026-003', customer: { name: 'Mohamed Ali', email: 'mohamed@example.com' }, total: 32000, status: 'SHIPPED', paymentMethod: 'CARD', itemCount: 3, createdAt: '2026-01-28T19:45:00Z' },
-                { id: '4', orderNumber: 'ORD-2026-004', customer: { name: 'Fatma Ibrahim', email: 'fatma@example.com' }, total: 12500, status: 'DELIVERED', paymentMethod: 'WALLET', itemCount: 1, createdAt: '2026-01-28T18:00:00Z' },
-                { id: '5', orderNumber: 'ORD-2026-005', customer: { name: 'Ali Hassan', email: 'ali@example.com' }, total: 45600, status: 'PROCESSING', paymentMethod: 'COD', itemCount: 4, createdAt: '2026-01-28T16:30:00Z' },
-                { id: '6', orderNumber: 'ORD-2026-006', customer: { name: 'Nour Ahmed', email: 'nour@example.com' }, total: 8900, status: 'CANCELLED', paymentMethod: 'CARD', itemCount: 1, createdAt: '2026-01-28T14:00:00Z' },
-            ]);
+        try {
+            const params = new URLSearchParams({ pageSize: '100' });
+            if (filter !== 'all') params.set('status', filter);
+            if (search) params.set('search', search);
+
+            const res = await fetch(`/api/v1/admin/orders?${params}`);
+            const data = await res.json();
+            if (data.success) {
+                setOrders(data.data.items);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to load orders');
+        } finally {
             setLoading(false);
-        }, 500);
+        }
+    }, [filter, search]);
+
+    useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+    async function advanceStatus(orderId: string, nextStatus: string) {
+        setUpdating(orderId);
+        try {
+            const res = await fetch(`/api/v1/admin/orders/${orderId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: nextStatus }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`Order status updated to ${nextStatus}`);
+                fetchOrders();
+            } else {
+                toast.error(data.error || 'Update failed');
+            }
+        } catch {
+            toast.error('Network error');
+        } finally {
+            setUpdating(null);
+        }
     }
 
-    const filteredOrders = filter === 'all'
-        ? orders
-        : orders.filter(o => o.status === filter);
+    function exportCSV() {
+        const headers = ['Order Number', 'Customer', 'Email', 'Total (EGP)', 'Status', 'Payment', 'Date'];
+        const rows = orders.map(o => [
+            o.orderNumber,
+            o.user?.name || o.shippingName || 'Guest',
+            o.user?.email || o.shippingEmail || '',
+            Number(o.total).toFixed(2),
+            o.status,
+            o.paymentMethod || 'N/A',
+            new Date(o.createdAt).toLocaleDateString(),
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders-${filter}-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('CSV downloaded!');
+    }
 
-    const statusCounts = {
-        all: orders.length,
-        PENDING: orders.filter(o => o.status === 'PENDING').length,
-        CONFIRMED: orders.filter(o => o.status === 'CONFIRMED').length,
-        PROCESSING: orders.filter(o => o.status === 'PROCESSING').length,
-        SHIPPED: orders.filter(o => o.status === 'SHIPPED').length,
-        DELIVERED: orders.filter(o => o.status === 'DELIVERED').length,
-        CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
-    };
+    const statusCounts: Record<string, number> = { all: orders.length };
+    orders.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
 
     return (
         <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            {/* Page Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="font-display text-2xl font-bold mb-2">Orders</h1>
-                    <p className="text-gray-500">Manage and track all customer orders</p>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 700, color: '#1a1a2e', margin: '0 0 6px 0' }}>Orders</h1>
+                    <p style={{ color: '#6b7280', margin: 0 }}>Manage and track all customer orders</p>
                 </div>
-                <button className="inline-flex items-center justify-center px-4 py-2 bg-[#1a1a2e] text-white font-medium rounded-lg hover:bg-[#2a2a4e] transition-colors whitespace-nowrap">
-                    Export Orders
+                <button
+                    onClick={exportCSV}
+                    style={{ padding: '10px 20px', background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                    ⬇ Export CSV
                 </button>
             </div>
 
+            {/* Search Bar */}
+            <div style={{ marginBottom: '20px' }}>
+                <input
+                    type="search"
+                    placeholder="Search by order number, customer name or phone..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={{ width: '100%', maxWidth: '480px', padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '0.875rem', outline: 'none', background: 'white', boxSizing: 'border-box' }}
+                    onFocus={(e) => e.target.style.borderColor = '#c9a959'}
+                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                />
+            </div>
+
             {/* Filter Tabs */}
-            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
-                {[
-                    { key: 'all', label: 'All Orders' },
-                    { key: 'PENDING', label: 'Pending' },
-                    { key: 'CONFIRMED', label: 'Confirmed' },
-                    { key: 'PROCESSING', label: 'Processing' },
-                    { key: 'SHIPPED', label: 'Shipped' },
-                    { key: 'DELIVERED', label: 'Delivered' },
-                    { key: 'CANCELLED', label: 'Cancelled' },
-                ].map((tab) => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setFilter(tab.key)}
-                        className={`px-5 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors shadow-sm ${filter === tab.key
-                                ? 'bg-[#c9a959] text-white'
-                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-100'
-                            }`}
-                    >
-                        {tab.label} ({statusCounts[tab.key as keyof typeof statusCounts] || 0})
-                    </button>
-                ))}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
+                {TABS.map((tab) => {
+                    const active = filter === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            onClick={() => setFilter(tab.key)}
+                            style={{
+                                padding: '8px 16px', borderRadius: '10px', fontSize: '0.8125rem', fontWeight: 600,
+                                whiteSpace: 'nowrap', cursor: 'pointer',
+                                border: active ? 'none' : '1px solid #e5e7eb',
+                                background: active ? '#c9a959' : 'white',
+                                color: active ? 'white' : '#374151',
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            {tab.label} ({statusCounts[tab.key] ?? 0})
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Orders Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                 {loading ? (
-                    <div className="p-12 text-center text-gray-500">Loading...</div>
-                ) : filteredOrders.length === 0 ? (
-                    <div className="p-12 text-center text-gray-500">
-                        No orders found
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
+                        <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#c9a959', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                        Loading orders...
+                    </div>
+                ) : orders.length === 0 ? (
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
+                        <p style={{ fontSize: '2rem', margin: '0 0 8px 0' }}>📭</p>
+                        No orders found for this filter.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <tr style={{ background: '#f9fafb' }}>
+                                    {['Order', 'Customer', 'Items', 'Total', 'Status', 'Date', 'Actions'].map(h => (
+                                        <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb' }}>
+                                            {h}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredOrders.map((order) => (
-                                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-                                        <td className="p-4">
-                                            <Link href={`/admin/orders/${order.id}`} className="font-semibold text-[#c9a959] hover:underline">
-                                                {order.orderNumber}
-                                            </Link>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="min-w-0 pr-4">
-                                                <p className="m-0 font-medium text-gray-900 truncate">{order.customer.name}</p>
-                                                <p className="m-0 text-xs text-gray-500 truncate mt-0.5">{order.customer.email}</p>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-700">{order.itemCount} items</td>
-                                        <td className="p-4">
-                                            <span className="font-semibold text-gray-900">{order.total.toLocaleString()} EGP</span>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
-                                                {order.paymentMethod}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <StatusBadge status={order.status} />
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-500">
-                                            {new Date(order.createdAt).toLocaleDateString('en-EG', {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex gap-2">
-                                                <Link href={`/admin/orders/${order.id}`} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-medium transition-colors">
-                                                    View
+                                {orders.map((order) => {
+                                    const s = STATUS_STYLES[order.status] || STATUS_STYLES.PENDING;
+                                    const nextAction = STATUS_NEXT[order.status];
+                                    const isUpdating = updating === order.id;
+                                    return (
+                                        <tr key={order.id} style={{ borderBottom: '1px solid #f3f4f6' }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = '#fafafa')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                        >
+                                            <td style={{ padding: '14px 16px' }}>
+                                                <Link href={`/admin/orders/${order.id}`} style={{ fontWeight: 700, color: '#c9a959', textDecoration: 'none', fontSize: '0.875rem' }}>
+                                                    {order.orderNumber}
                                                 </Link>
-                                                {order.status === 'PENDING' && (
-                                                    <button className="px-3 py-1.5 bg-[#1a1a2e] hover:bg-[#2a2a4e] text-white rounded-md text-xs font-medium transition-colors">
-                                                        Confirm
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td style={{ padding: '14px 16px' }}>
+                                                <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: '0.875rem' }}>
+                                                    {order.user?.name || order.shippingName || 'Guest'}
+                                                </p>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                                                    {order.user?.email || order.shippingEmail || ''}
+                                                </p>
+                                            </td>
+                                            <td style={{ padding: '14px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                                {order.items?.length ?? 0} items
+                                            </td>
+                                            <td style={{ padding: '14px 16px', fontWeight: 700, color: '#111827', fontSize: '0.875rem' }}>
+                                                {Number(order.total).toLocaleString()} EGP
+                                            </td>
+                                            <td style={{ padding: '14px 16px' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, background: s.bg, color: s.color }}>
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '14px 16px', fontSize: '0.8125rem', color: '#9ca3af' }}>
+                                                {new Date(order.createdAt).toLocaleDateString('en-EG', { day: 'numeric', month: 'short' })}
+                                            </td>
+                                            <td style={{ padding: '14px 16px' }}>
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                    <Link href={`/admin/orders/${order.id}`}
+                                                        style={{ padding: '5px 12px', background: '#f3f4f6', color: '#374151', borderRadius: '8px', fontSize: '12px', fontWeight: 500, textDecoration: 'none' }}>
+                                                        View
+                                                    </Link>
+                                                    {nextAction && (
+                                                        <button
+                                                            disabled={isUpdating}
+                                                            onClick={() => advanceStatus(order.id, nextAction.next)}
+                                                            style={{
+                                                                padding: '5px 12px', background: isUpdating ? '#9ca3af' : nextAction.bg,
+                                                                color: nextAction.color, borderRadius: '8px', fontSize: '12px',
+                                                                fontWeight: 500, border: 'none', cursor: isUpdating ? 'not-allowed' : 'pointer',
+                                                                transition: 'opacity 0.2s',
+                                                            }}
+                                                        >
+                                                            {isUpdating ? '...' : nextAction.label}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
-    );
-}
-
-function StatusBadge({ status }: { status: string }) {
-    const colors: Record<string, string> = {
-        PENDING: 'bg-amber-50 text-amber-500',
-        CONFIRMED: 'bg-blue-50 text-blue-500',
-        PROCESSING: 'bg-purple-50 text-purple-500',
-        SHIPPED: 'bg-cyan-50 text-cyan-500',
-        DELIVERED: 'bg-emerald-50 text-emerald-500',
-        CANCELLED: 'bg-red-50 text-red-500',
-    };
-
-    const colorClass = colors[status] || colors.PENDING;
-
-    return (
-        <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${colorClass}`}>
-            {status.replace(/_/g, ' ')}
-        </span>
     );
 }

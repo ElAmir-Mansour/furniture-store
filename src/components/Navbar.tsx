@@ -24,8 +24,14 @@ export default function Navbar() {
         setWishlistCount(getWishlistCount());
 
         const handleWishlistUpdate = () => setWishlistCount(getWishlistCount());
+        const handleCartUpdate = () => fetchCartCount();
+
         window.addEventListener('wishlistUpdated', handleWishlistUpdate);
-        return () => window.removeEventListener('wishlistUpdated', handleWishlistUpdate);
+        window.addEventListener('cartUpdated', handleCartUpdate);
+        return () => {
+            window.removeEventListener('wishlistUpdated', handleWishlistUpdate);
+            window.removeEventListener('cartUpdated', handleCartUpdate);
+        };
     }, []);
 
     async function fetchCartCount() {
@@ -67,9 +73,9 @@ export default function Navbar() {
     return (
         <>
             <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-black/5 h-20 transition-all duration-300">
-                <div className="max-w-[1400px] mx-auto px-6 h-full flex items-center justify-between">
+                <div className="container h-full flex items-center justify-between">
                     {/* Logo */}
-                    <Link href={localePath('/')} className="font-display text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight" style={{ textDecoration: 'none' }}>
+                    <Link href={localePath('/')} className="font-display text-2xl sm:text-3xl font-bold text-primary tracking-tight" style={{ textDecoration: 'none' }}>
                         {locale === 'ar' ? 'فيرنتشر' : 'FURNITURE'}<span className="text-[#c9a959]">.</span>
                     </Link>
 
@@ -80,8 +86,8 @@ export default function Navbar() {
                                 key={link.href}
                                 href={localePath(link.href)}
                                 className={`relative text-sm transition-colors duration-200 ${isActive(link.href)
-                                        ? 'text-gray-900 font-semibold'
-                                        : 'text-gray-500 hover:text-gray-900 font-medium'
+                                    ? 'text-gray-900 font-semibold'
+                                    : 'text-gray-500 hover:text-gray-900 font-medium'
                                     }`}
                                 style={{ textDecoration: 'none' }}
                             >
@@ -173,8 +179,8 @@ export default function Navbar() {
                                 href={localePath(link.href)}
                                 onClick={() => setMobileMenuOpen(false)}
                                 className={`block px-4 py-3 rounded-xl font-medium transition-colors ${isActive(link.href)
-                                        ? 'bg-gray-50 text-gray-900'
-                                        : 'text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-gray-50 text-gray-900'
+                                    : 'text-gray-600 hover:bg-gray-50'
                                     }`}
                                 style={{ textDecoration: 'none' }}
                             >

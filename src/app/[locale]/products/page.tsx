@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
+import { toast } from 'react-hot-toast';
 
 interface Product {
     id: string;
@@ -14,7 +15,7 @@ interface Product {
     material?: string;
     category: { id: string; name: string; slug: string };
     images: { thumbnailUrl: string; standardUrl: string }[];
-    variants: { stock: number }[];
+    variants: { id: string; stock: number; name: string }[];
 }
 
 interface Category {
@@ -32,12 +33,23 @@ interface Filters {
     sortBy?: string;
 }
 
+const INPUT_STYLE: React.CSSProperties = {
+    display: 'block', width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb',
+    borderRadius: '8px', fontSize: '0.875rem', color: '#1a1a2e', background: 'white',
+    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
+};
+
+const LABEL_STYLE: React.CSSProperties = {
+    display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#1a1a2e',
+    marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em',
+};
+
 export default function ProductsPage() {
     return (
         <Suspense fallback={
-            <div className="pt-28 min-h-screen">
-                <div className="container max-w-[1400px] mx-auto px-6">
-                    <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-2xl" />
+            <div style={{ minHeight: '100vh', background: '#f7f5f2', padding: '120px 0 80px' }}>
+                <div className="container">
+                    <div style={{ height: '400px', background: 'linear-gradient(90deg,#ede9e3 25%,#e5e0d8 50%,#ede9e3 75%)', borderRadius: '20px', animation: 'pulse 1.5s infinite' }} />
                 </div>
             </div>
         }>
@@ -64,21 +76,19 @@ function ProductsContent() {
         sortBy: 'newest',
     });
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
-
-    useEffect(() => {
+    const fetchProductsMemo = useCallback(() => {
         fetchProducts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filters, currentPage]);
+
+    useEffect(() => { fetchCategories(); }, []);
+    useEffect(() => { fetchProductsMemo(); }, [fetchProductsMemo]);
 
     async function fetchCategories() {
         try {
             const res = await fetch('/api/v1/categories?flat=true');
             const data = await res.json();
-            if (data.success) {
-                setCategories(data.data);
-            }
+            if (data.success) setCategories(data.data);
         } catch (error) {
             console.error('Failed to fetch categories:', error);
         }
@@ -98,7 +108,6 @@ function ProductsContent() {
 
             const res = await fetch(`/api/v1/products?${params.toString()}`);
             const data = await res.json();
-
             if (data.success) {
                 setProducts(data.data.items);
                 setTotalPages(data.data.totalPages);
@@ -116,79 +125,91 @@ function ProductsContent() {
     }
 
     return (
-        <div className="pt-28 pb-24 min-h-screen bg-gray-50/30">
-            <div className="container max-w-[1400px] mx-auto px-6">
+        <div style={{ background: '#f7f5f2', minHeight: '100vh', paddingTop: '100px', paddingBottom: '80px' }}>
+            <div className="container">
                 {/* Page Header */}
-                <div className="mb-12">
-                    <h1 className="font-display text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
+                <div style={{ marginBottom: '40px' }}>
+                    <h1 className="font-display" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 700, color: '#1a1a2e', marginBottom: '10px' }}>
                         {t('title')}
                     </h1>
-                    <p className="text-gray-500 text-lg max-w-2xl">
+                    <p style={{ color: '#6b7280', fontSize: '1.05rem', fontWeight: 300 }}>
                         {t('subtitle')}
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-10">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '40px', alignItems: 'flex-start' }}>
                     {/* Filters Sidebar */}
-                    <aside>
-                        <div className="bg-[#f7f5f2] rounded-2xl p-6 sticky top-28 shadow-sm border border-gray-100">
-                            <h3 className="text-xl font-bold text-gray-900 mb-6">{t('filters')}</h3>
+                    <aside style={{ flex: '1 1 260px', maxWidth: '320px' }}>
+                        <div style={{ background: 'white', borderRadius: '16px', padding: '24px', position: 'sticky', top: '100px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #e5e7eb' }}>
+                            <h3 className="font-display" style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '24px' }}>
+                                {t('filters')}
+                            </h3>
 
                             {/* Search */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search')}</label>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={LABEL_STYLE}>{t('search')}</label>
                                 <input
                                     type="text"
                                     placeholder={t('searchPlaceholder')}
-                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all"
+                                    style={INPUT_STYLE}
                                     value={filters.search || ''}
-                                    onChange={(e) => handleFilterChange('search', e.target.value || undefined)}
+                                    onChange={e => handleFilterChange('search', e.target.value || undefined)}
+                                    onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                 />
                             </div>
 
                             {/* Categories */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('category')}</label>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={LABEL_STYLE}>{t('category')}</label>
                                 <select
-                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all appearance-none cursor-pointer"
+                                    style={{ ...INPUT_STYLE, cursor: 'pointer', appearance: 'auto' }}
                                     value={filters.categoryId || ''}
-                                    onChange={(e) => handleFilterChange('categoryId', e.target.value || undefined)}
+                                    onChange={e => handleFilterChange('categoryId', e.target.value || undefined)}
+                                    onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                 >
                                     <option value="">{t('allCategories')}</option>
-                                    {categories.map((cat) => (
+                                    {categories.map(cat => (
                                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                                     ))}
                                 </select>
                             </div>
 
                             {/* Price Range */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('priceRange')} ({tCommon('egp')})</label>
-                                <div className="flex gap-2">
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={LABEL_STYLE}>{t('priceRange')} ({tCommon('egp')})</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
                                     <input
                                         type="number"
                                         placeholder={t('min')}
-                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all"
+                                        style={{ ...INPUT_STYLE, flex: 1 }}
                                         value={filters.minPrice || ''}
-                                        onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+                                        onChange={e => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+                                        onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                     />
                                     <input
                                         type="number"
                                         placeholder={t('max')}
-                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all"
+                                        style={{ ...INPUT_STYLE, flex: 1 }}
                                         value={filters.maxPrice || ''}
-                                        onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+                                        onChange={e => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+                                        onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                     />
                                 </div>
                             </div>
 
                             {/* Material */}
-                            <div className="mb-8">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('material')}</label>
+                            <div style={{ marginBottom: '28px' }}>
+                                <label style={LABEL_STYLE}>{t('material')}</label>
                                 <select
-                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all appearance-none cursor-pointer"
+                                    style={{ ...INPUT_STYLE, cursor: 'pointer', appearance: 'auto' }}
                                     value={filters.material || ''}
-                                    onChange={(e) => handleFilterChange('material', e.target.value || undefined)}
+                                    onChange={e => handleFilterChange('material', e.target.value || undefined)}
+                                    onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                 >
                                     <option value="">{t('allMaterials')}</option>
                                     <option value="Velvet">{locale === 'ar' ? 'مخمل' : 'Velvet'}</option>
@@ -201,11 +222,10 @@ function ProductsContent() {
 
                             {/* Clear Filters */}
                             <button
-                                onClick={() => {
-                                    setFilters({ sortBy: 'newest' });
-                                    setCurrentPage(1);
-                                }}
-                                className="w-full py-3 px-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                                onClick={() => { setFilters({ sortBy: 'newest' }); setCurrentPage(1); }}
+                                style={{ width: '100%', padding: '11px', border: '2px solid #1a1a2e', background: 'transparent', color: '#1a1a2e', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#1a1a2e'; e.currentTarget.style.color = 'white'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1a1a2e'; }}
                             >
                                 {t('clearFilters')}
                             </button>
@@ -213,18 +233,22 @@ function ProductsContent() {
                     </aside>
 
                     {/* Products Grid */}
-                    <div>
+                    <div style={{ flex: '3 1 400px', minWidth: 0 }}>
                         {/* Sort Bar */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-gray-200">
-                            <span className="text-gray-500 font-medium">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', paddingBottom: '20px', borderBottom: '1px solid #e5e7eb' }}>
+                            <span style={{ color: '#6b7280', fontWeight: 500, fontSize: '0.9rem' }}>
                                 {loading ? tCommon('loading') : `${products.length} ${t('productsCount')}`}
                             </span>
-                            <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <label className="text-sm font-medium text-gray-600 shrink-0">{t('sort_by')}</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                                    {locale === 'ar' ? 'ترتيب حسب' : 'Sort by'}
+                                </label>
                                 <select
-                                    className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c9a959]/50 focus:border-[#c9a959] transition-all appearance-none cursor-pointer font-medium text-gray-800"
+                                    style={{ padding: '8px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', background: 'white', cursor: 'pointer', color: '#1a1a2e', transition: 'border-color 0.2s' }}
                                     value={filters.sortBy || 'newest'}
-                                    onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                                    onChange={e => handleFilterChange('sortBy', e.target.value)}
+                                    onFocus={e => e.target.style.borderColor = '#c9a959'}
+                                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
                                 >
                                     <option value="newest">{t('sortNewest')}</option>
                                     <option value="price_asc">{t('sortPriceLow')}</option>
@@ -236,50 +260,55 @@ function ProductsContent() {
 
                         {/* Products */}
                         {loading ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {Array(6).fill(0).map((_, i) => (
-                                    <ProductCardSkeleton key={i} />
-                                ))}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
+                                {Array(6).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
                             </div>
                         ) : products.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 bg-[#f7f5f2] rounded-2xl border border-gray-100">
-                                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-6">
-                                    <span className="text-3xl">🔍</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', background: 'white', borderRadius: '16px', border: '2px dashed #e5e7eb' }}>
+                                <div style={{ width: '80px', height: '80px', background: '#f7f5f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                                    <span style={{ fontSize: '2rem' }}>🔍</span>
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '8px' }}>
                                     {t('noProducts')}
                                 </h3>
-                                <p className="text-gray-500 max-w-sm text-center">
+                                <p style={{ color: '#6b7280', maxWidth: '320px', textAlign: 'center' }}>
                                     {t('tryAdjusting')}
                                 </p>
                             </div>
                         ) : (
                             <>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {products.map((product) => (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
+                                    {products.map(product => (
                                         <ProductCard key={product.id} product={product} locale={locale} />
                                     ))}
                                 </div>
 
                                 {/* Pagination */}
                                 {totalPages > 1 && (
-                                    <div className="flex justify-center items-center gap-2 mt-16">
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '60px' }}>
                                         <button
                                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             disabled={currentPage === 1}
-                                            className="px-4 py-2 bg-white border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 hover:text-[#c9a959] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            style={{ padding: '8px 16px', background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontWeight: 600, color: '#1a1a2e', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, transition: 'all 0.2s', fontSize: '0.875rem' }}
+                                            onMouseEnter={e => { if (currentPage !== 1) e.currentTarget.style.borderColor = '#c9a959'; }}
+                                            onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
                                         >
                                             {t('previous')}
                                         </button>
-                                        <div className="flex gap-1">
-                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                                                 <button
                                                     key={page}
                                                     onClick={() => setCurrentPage(page)}
-                                                    className={`w-10 h-10 rounded-lg font-medium flex items-center justify-center transition-colors ${page === currentPage
-                                                        ? 'bg-[#1a1a2e] text-white'
-                                                        : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                                                        }`}
+                                                    style={{
+                                                        width: '40px', height: '40px', borderRadius: '8px', fontWeight: 600, border: '1.5px solid',
+                                                        borderColor: page === currentPage ? '#1a1a2e' : '#e5e7eb',
+                                                        background: page === currentPage ? '#1a1a2e' : 'white',
+                                                        color: page === currentPage ? 'white' : '#1a1a2e',
+                                                        cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.875rem',
+                                                    }}
+                                                    onMouseEnter={e => { if (page !== currentPage) e.currentTarget.style.borderColor = '#c9a959'; }}
+                                                    onMouseLeave={e => { if (page !== currentPage) e.currentTarget.style.borderColor = '#e5e7eb'; }}
                                                 >
                                                     {page}
                                                 </button>
@@ -288,7 +317,9 @@ function ProductsContent() {
                                         <button
                                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                             disabled={currentPage === totalPages}
-                                            className="px-4 py-2 bg-white border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 hover:text-[#c9a959] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            style={{ padding: '8px 16px', background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontWeight: 600, color: '#1a1a2e', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.4 : 1, transition: 'all 0.2s', fontSize: '0.875rem' }}
+                                            onMouseEnter={e => { if (currentPage !== totalPages) e.currentTarget.style.borderColor = '#c9a959'; }}
+                                            onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
                                         >
                                             {t('next')}
                                         </button>
@@ -305,46 +336,111 @@ function ProductsContent() {
 
 function ProductCard({ product, locale }: { product: Product; locale: string }) {
     const tCommon = useTranslations('common');
+    const [addingToCart, setAddingToCart] = useState(false);
+    const [hovered, setHovered] = useState(false);
     const price = Number(product.price);
     const comparePrice = Number(product.comparePrice);
     const hasDiscount = comparePrice > price;
     const discountPercent = hasDiscount ? Math.round((1 - price / comparePrice) * 100) : 0;
+    const firstVariant = product.variants?.[0];
+    const inStock = product.variants?.some(v => v.stock > 0);
+
+    const handleAddToCart = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!firstVariant || !inStock) return;
+        setAddingToCart(true);
+        try {
+            const res = await fetch(`/api/v1/cart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variantId: firstVariant.id, quantity: 1 }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`${product.name} added to cart!`);
+                window.dispatchEvent(new Event('cartUpdated'));
+            } else {
+                toast.error(data.error || 'Failed to add to cart');
+            }
+        } catch {
+            toast.error('Failed to add to cart');
+        } finally {
+            setAddingToCart(false);
+        }
+    };
 
     return (
         <Link
             href={`/${locale}/products/${product.slug}`}
-            className="group bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-lg border border-gray-100 transition-all duration-300 block"
-            style={{ textDecoration: 'none' }}
+            style={{
+                textDecoration: 'none', display: 'block', background: 'white', borderRadius: '16px',
+                overflow: 'hidden', border: '1px solid #e5e7eb',
+                transform: hovered ? 'translateY(-4px)' : 'none',
+                boxShadow: hovered ? '0 12px 32px rgba(0,0,0,0.1)' : '0 1px 4px rgba(0,0,0,0.04)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
         >
-            <div className="relative aspect-square overflow-hidden bg-[#f7f5f2]">
+            {/* Image */}
+            <div style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', background: '#f7f5f2' }}>
                 <img
                     src={product.images[0]?.standardUrl || 'https://via.placeholder.com/400'}
                     alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s', transform: hovered ? 'scale(1.05)' : 'scale(1)' }}
                 />
                 {hasDiscount && (
-                    <span className="absolute top-4 left-4 px-2.5 py-1 bg-[#ef4444] text-[10px] sm:text-xs font-bold text-white tracking-wide rounded shadow-sm z-10">
+                    <span style={{ position: 'absolute', top: '12px', left: '12px', padding: '3px 8px', background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: 700, borderRadius: '6px', zIndex: 1 }}>
                         -{discountPercent}%
                     </span>
                 )}
+                {!inStock && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                        <span style={{ background: '#1a1a2e', color: 'white', padding: '6px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.06em' }}>OUT OF STOCK</span>
+                    </div>
+                )}
             </div>
-            <div className="p-5">
-                <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+
+            {/* Content */}
+            <div style={{ padding: '16px 20px 20px' }}>
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>
                     {product.category?.name}
                 </span>
-                <h3 className="font-display text-lg font-bold text-gray-900 mb-3 truncate group-hover:text-[#c9a959] transition-colors">
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 700, color: '#1a1a2e', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {product.name}
                 </h3>
-                <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-[#1a1a2e]">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#c9a959' }}>
                         {price.toLocaleString()} {tCommon('egp')}
                     </span>
                     {hasDiscount && (
-                        <span className="text-sm font-medium text-gray-400 line-through">
+                        <span style={{ fontSize: '0.875rem', color: '#9ca3af', textDecoration: 'line-through' }}>
                             {comparePrice.toLocaleString()}
                         </span>
                     )}
                 </div>
+
+                {inStock ? (
+                    <button
+                        onClick={handleAddToCart}
+                        disabled={addingToCart}
+                        style={{
+                            width: '100%', padding: '10px', background: addingToCart ? '#9ca3af' : '#1a1a2e',
+                            color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600,
+                            fontSize: '0.8rem', cursor: addingToCart ? 'not-allowed' : 'pointer',
+                            transition: 'background 0.2s', letterSpacing: '0.04em',
+                        }}
+                        onMouseEnter={e => { if (!addingToCart) e.currentTarget.style.background = '#c9a959'; }}
+                        onMouseLeave={e => { if (!addingToCart) e.currentTarget.style.background = '#1a1a2e'; }}
+                    >
+                        {addingToCart ? 'Adding...' : '🛒 Add to Cart'}
+                    </button>
+                ) : (
+                    <div style={{ width: '100%', padding: '10px', background: '#f3f4f6', color: '#9ca3af', borderRadius: '8px', fontWeight: 600, fontSize: '0.8rem', textAlign: 'center', letterSpacing: '0.04em' }}>
+                        Out of Stock
+                    </div>
+                )}
             </div>
         </Link>
     );
@@ -352,12 +448,13 @@ function ProductCard({ product, locale }: { product: Product; locale: string }) 
 
 function ProductCardSkeleton() {
     return (
-        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-            <div className="aspect-square bg-gray-100 animate-pulse" />
-            <div className="p-5">
-                <div className="h-3 w-1/3 bg-gray-200 rounded animate-pulse mb-3" />
-                <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse mb-4" />
-                <div className="h-6 w-1/2 bg-gray-200 rounded animate-pulse" />
+        <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ aspectRatio: '1', background: 'linear-gradient(90deg,#f7f5f2 25%,#ede9e3 50%,#f7f5f2 75%)', animation: 'pulse 1.5s infinite' }} />
+            <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ height: '10px', width: '33%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ height: '18px', width: '75%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ height: '20px', width: '40%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ height: '36px', background: '#e5e7eb', borderRadius: '8px', animation: 'pulse 1.5s infinite', marginTop: '4px' }} />
             </div>
         </div>
     );

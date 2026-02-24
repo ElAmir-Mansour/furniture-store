@@ -6,8 +6,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import Image from 'next/image';
 import QuickViewModal from '@/components/QuickViewModal';
 import { toggleWishlist, isInWishlist } from '@/lib/wishlist';
-
-
+import { toast } from 'react-hot-toast';
 
 interface Category {
   id: string;
@@ -24,7 +23,7 @@ interface Product {
   comparePrice?: number;
   images: { thumbnailUrl: string; standardUrl: string }[];
   category: { name: string };
-  variants: { stock: number }[];
+  variants: { id: string; stock: number; name: string }[];
 }
 
 export default function HomePage() {
@@ -37,9 +36,7 @@ export default function HomePage() {
 
   const localePath = (path: string) => `/${locale}${path}`;
 
-  useEffect(() => {
-    fetchHomeData();
-  }, []);
+  useEffect(() => { fetchHomeData(); }, []);
 
   async function fetchHomeData() {
     try {
@@ -47,10 +44,8 @@ export default function HomePage() {
         fetch('/api/v1/categories'),
         fetch('/api/v1/products/featured?limit=8'),
       ]);
-
       const categoriesData = await categoriesRes.json();
       const featuredData = await featuredRes.json();
-
       if (categoriesData.success) setCategories(categoriesData.data);
       if (featuredData.success) setFeaturedProducts(featuredData.data);
     } catch (error) {
@@ -61,50 +56,41 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)' }}>
       <QuickViewModal productSlug={quickViewSlug} onClose={() => setQuickViewSlug(null)} />
 
-      {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center bg-[#f7f5f2] overflow-hidden pt-20">
-        <div className="container max-w-[1400px] mx-auto px-6 lg:px-12 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-
+      {/* ─── Hero ─── */}
+      <section className="hero">
+        <div className="container" style={{ position: 'relative', zIndex: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '48px', alignItems: 'center' }}>
             {/* Left Content */}
-            <div className="max-w-2xl animate-fade-in-up order-2 lg:order-1 pb-16 lg:pb-0">
-              <span className="inline-block px-4 py-1.5 bg-[#c9a959]/10 text-[#c9a959] text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] rounded-full mb-8">
-                {t('home.heroSubtitle')}
-              </span>
-              <h1 className="font-display text-[#1a1a2e] text-4xl md:text-5xl lg:text-7xl font-medium leading-[1.1] mb-6 tracking-tight">
+            <div className="hero-content animate-fadeInUp">
+              <span className="hero-subtitle">{t('home.heroSubtitle')}</span>
+              <h1 className="hero-title display-xl">
                 {t('home.heroTitle').split(' ').slice(0, 2).join(' ')}<br />
-                <span className="text-gray-500 italic font-light">{t('home.heroTitle').split(' ').slice(2).join(' ')}</span>
+                <span style={{ color: 'var(--color-secondary)', fontStyle: 'italic', fontWeight: 300 }}>
+                  {t('home.heroTitle').split(' ').slice(2).join(' ')}
+                </span>
               </h1>
-              <p className="text-gray-600 text-base md:text-lg mb-10 max-w-lg leading-relaxed font-light">
-                {t('home.heroDescription')}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-                <Link
-                  href={localePath('/products')}
-                  className="inline-flex items-center justify-center px-10 py-4 bg-[#1a1a2e] text-white text-sm tracking-wide uppercase font-medium rounded-none hover:bg-[#c9a959] transition-all duration-500 w-full sm:w-auto"
-                >
+              <p className="hero-description">{t('home.heroDescription')}</p>
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Link href={localePath('/products')} className="btn btn-primary btn-lg">
                   {t('home.shopNow')}
                 </Link>
-                <Link
-                  href={localePath('/categories')}
-                  className="inline-flex items-center justify-center text-[#1a1a2e] text-sm tracking-wide uppercase font-medium hover:text-[#c9a959] transition-colors duration-300 relative after:content-[''] after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[1px] after:bg-[#c9a959] after:scale-x-0 origin-left hover:after:scale-x-100 after:transition-transform after:duration-300"
-                >
+                <Link href={localePath('/categories')} className="btn btn-outline btn-lg" style={{ background: 'rgba(255,255,255,0.1)' }}>
                   {t('home.exploreCategories')}
                 </Link>
               </div>
             </div>
 
             {/* Right Image */}
-            <div className="relative aspect-[4/3] lg:aspect-[3/4] w-full order-1 lg:order-2">
-              <div className="absolute inset-0 bg-[#c9a959]/5 rounded-bl-[100px] transform translate-x-4 translate-y-4"></div>
+            <div className="animate-slideInRight" style={{ position: 'relative', aspectRatio: '3/4', width: '100%' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(201,169,89,0.1)', borderRadius: '0 0 0 100px', transform: 'translate(16px,16px)' }} />
               <Image
                 src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&q=80"
                 alt="Premium Sofa"
                 fill
-                className="object-cover rounded-bl-[100px] shadow-2xl"
+                style={{ objectFit: 'cover', borderRadius: '0 0 0 100px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
                 priority
                 sizes="(max-width: 1024px) 100vw, 50vw"
               />
@@ -113,119 +99,110 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="py-24">
-        <div className="container max-w-[1400px] mx-auto px-6">
-          <div className="text-center mb-16">
-            <span className="inline-block text-[#c9a959] text-xs font-bold uppercase tracking-[0.15em] mb-2">
-              {t('home.explore')}
-            </span>
-            <h2 className="font-display text-[#1a1a2e] text-3xl md:text-4xl lg:text-5xl font-bold">
-              {t('home.shopByCategory')}
-            </h2>
+      {/* ─── Categories ─── */}
+      <section className="section" style={{ background: 'var(--color-bg)' }}>
+        <div className="container">
+          <div className="section-header">
+            <span className="section-subtitle">{t('home.explore')}</span>
+            <h2 className="section-title">{t('home.shopByCategory')}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-            {loading ? (
-              Array(4).fill(0).map((_, i) => (
-                <div key={i} className="aspect-square bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-pulse rounded-2xl" />
+          <div className="grid grid-4">
+            {loading
+              ? Array(4).fill(0).map((_, i) => (
+                <div key={i} style={{ aspectRatio: '1', background: 'linear-gradient(90deg,#ede9e3 25%,#e5e0d8 50%,#ede9e3 75%)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
               ))
-            ) : (
-              categories.slice(0, 4).map((category) => (
+              : categories.slice(0, 4).map((category) => (
                 <CategoryCard key={category.id} category={category} locale={locale} />
-              ))
-            )}
+              ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="py-24 bg-[#f7f5f2]">
-        <div className="container max-w-[1400px] mx-auto px-6">
-          <div className="text-center mb-16">
-            <span className="inline-block text-[#c9a959] text-xs font-bold uppercase tracking-[0.15em] mb-2">
-              {t('home.curatedSelection')}
-            </span>
-            <h2 className="font-display text-[#1a1a2e] text-3xl md:text-4xl lg:text-5xl font-bold">
-              {t('home.featuredCollection')}
-            </h2>
+      {/* ─── Featured Products ─── */}
+      <section className="section" style={{ background: 'var(--color-bg-alt)' }}>
+        <div className="container">
+          <div className="section-header">
+            <span className="section-subtitle">{t('home.curatedSelection')}</span>
+            <h2 className="section-title">{t('home.featuredCollection')}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 lg:gap-16">
-            {loading ? (
-              Array(8).fill(0).map((_, i) => (
-                <ProductCardSkeleton key={i} />
-              ))
-            ) : (
-              featuredProducts.map((product) => (
+          <div className="grid grid-4">
+            {loading
+              ? Array(8).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)
+              : featuredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   locale={locale}
                   onQuickView={() => setQuickViewSlug(product.slug)}
                 />
-              ))
-            )}
+              ))}
           </div>
-          <div className="text-center mt-16">
-            <Link
-              href={localePath('/products')}
-              className="inline-flex items-center justify-center px-8 py-4 bg-transparent border-2 border-[#1a1a2e] text-[#1a1a2e] font-bold rounded-lg hover:bg-[#1a1a2e] hover:text-white transition-all duration-300"
-              style={{ textDecoration: 'none' }}
-            >
+          <div style={{ textAlign: 'center', marginTop: '64px' }}>
+            <Link href={localePath('/products')} className="btn btn-outline btn-lg" style={{ textDecoration: 'none' }}>
               {t('home.viewAllProducts')}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Features */}
+      {/* ─── Features ─── */}
       <FeaturesSection />
 
-      {/* Newsletter */}
+      {/* ─── Newsletter ─── */}
       <NewsletterSection />
-
-      {/* Footer */}
-      <Footer locale={locale} />
     </div>
   );
 }
 
+/* ── Category Card ── */
 function CategoryCard({ category, locale }: { category: Category; locale: string }) {
   const t = useTranslations('home');
+  const [hovered, setHovered] = useState(false);
   return (
     <Link
       href={`/${locale}/products?category=${category.slug}`}
-      className="group relative aspect-[4/5] overflow-hidden cursor-pointer block"
+      className="category-card group"
       style={{ textDecoration: 'none' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="absolute inset-0 bg-black/20 z-10 transition-colors duration-700 group-hover:bg-black/40"></div>
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent z-10 opacity-80"></div>
       <Image
         src={category.image || 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=600'}
         alt={category.name}
         fill
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+        style={{ objectFit: 'cover' }}
       />
-      <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 z-20 text-white flex flex-col justify-end h-full">
-        <h3 className="font-display text-2xl md:text-3xl font-medium mb-3 tracking-wide">{category.name}</h3>
-        <div className="overflow-hidden">
-          <span className="inline-block text-xs uppercase tracking-widest font-semibold border-b border-white/30 pb-1 transform translate-y-[150%] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-            {t('viewCollection')}
-          </span>
-        </div>
+      <div className="category-card-content">
+        <h3 className="category-card-title">{category.name}</h3>
+        <span style={{
+          color: '#c9a959', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '10px',
+          transform: hovered ? 'translateY(0)' : 'translateY(16px)',
+          opacity: hovered ? 1 : 0,
+          transition: 'all 0.3s',
+          display: 'block',
+          marginTop: '4px',
+        }}>
+          {t('viewCollection')}
+        </span>
       </div>
     </Link>
   );
 }
 
+/* ── Product Card ── */
 function ProductCard({ product, locale, onQuickView }: { product: Product; locale: string; onQuickView: () => void }) {
   const t = useTranslations('common');
   const [inWishlist, setInWishlist] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [wishlistHovered, setWishlistHovered] = useState(false);
 
   const price = Number(product.price);
   const comparePrice = Number(product.comparePrice);
   const hasDiscount = comparePrice > price;
   const discountPercent = hasDiscount ? Math.round((1 - price / comparePrice) * 100) : 0;
+  const firstVariant = product.variants?.[0];
+  const inStock = product.variants?.some(v => v.stock > 0);
 
   useEffect(() => {
     setInWishlist(isInWishlist(product.id));
@@ -237,13 +214,7 @@ function ProductCard({ product, locale, onQuickView }: { product: Product; local
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleWishlist({
-      id: product.id,
-      slug: product.slug,
-      name: product.name,
-      price: price,
-      image: product.images[0]?.standardUrl || '',
-    });
+    toggleWishlist({ id: product.id, slug: product.slug, name: product.name, price, image: product.images[0]?.standardUrl || '' });
   };
 
   const handleQuickView = (e: React.MouseEvent) => {
@@ -252,83 +223,132 @@ function ProductCard({ product, locale, onQuickView }: { product: Product; local
     onQuickView();
   };
 
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!firstVariant || !inStock) return;
+    setAddingToCart(true);
+    try {
+      const res = await fetch(`/api/v1/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantId: firstVariant.id, quantity: 1 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${product.name} added to cart!`);
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error(data.error || 'Failed to add to cart');
+      }
+    } catch {
+      toast.error('Failed to add to cart');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   return (
     <Link
       href={`/${locale}/products/${product.slug}`}
-      className="group block"
+      className="product-card group"
       style={{ textDecoration: 'none' }}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-[#f7f5f2] mb-6">
+      <div className="product-card-image">
         <Image
           src={product.images[0]?.standardUrl || 'https://via.placeholder.com/400'}
           alt={product.name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover transition-all duration-700 group-hover:scale-105 group-hover:opacity-95"
         />
 
         {hasDiscount && (
-          <span className="absolute top-4 left-4 px-3 py-1 bg-[#c9a959]/10 text-[#c9a959] text-[10px] font-bold uppercase tracking-widest z-10">
-            -{discountPercent}%
-          </span>
+          <span className="product-card-badge">-{discountPercent}%</span>
         )}
 
-        <div className="absolute top-4 right-4 flex flex-col gap-3 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500 delay-75 z-10">
+        <div className="product-card-actions">
           <button
             onClick={handleWishlistClick}
-            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${inWishlist
-              ? 'bg-red-50 text-red-500 hover:bg-red-100'
-              : 'bg-white text-[#1a1a2e] hover:bg-gray-50 hover:text-[#c9a959]'
-              }`}
             aria-label="Add to wishlist"
+            onMouseEnter={() => setWishlistHovered(true)}
+            onMouseLeave={() => setWishlistHovered(false)}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+              background: inWishlist ? '#fef2f2' : (wishlistHovered ? '#f7f5f2' : 'white'),
+              color: inWishlist ? '#ef4444' : '#1a1a2e',
+            }}
           >
             <HeartIcon filled={inWishlist} />
           </button>
           <button
             onClick={handleQuickView}
-            className="w-10 h-10 bg-white text-[#1a1a2e] rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 hover:text-[#c9a959] transition-colors"
             aria-label="Quick view"
+            style={{
+              width: '40px', height: '40px', background: 'white', color: '#1a1a2e', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f7f5f2'; e.currentTarget.style.color = '#c9a959'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#1a1a2e'; }}
           >
             <EyeIcon />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col items-center text-center">
-        <span className="block text-[10px] text-gray-500 uppercase tracking-[0.15em] mb-2">
-          {product.category?.name}
-        </span>
-        <h3 className="font-display text-lg font-medium text-[#1a1a2e] mb-2 transition-colors group-hover:text-[#c9a959]">
-          {product.name}
-        </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-900">
-            {price.toLocaleString()} {t('egp')}
-          </span>
+      <div className="product-card-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <span className="product-card-category">{product.category?.name}</span>
+        <h3 className="product-card-title" style={{ transition: 'color 0.2s' }}>{product.name}</h3>
+        <div className="product-card-price">
+          <span className="product-card-price-current">{price.toLocaleString()} {t('egp')}</span>
           {hasDiscount && (
-            <span className="text-xs text-gray-400 line-through">
-              {comparePrice.toLocaleString()} {t('egp')}
-            </span>
+            <span className="product-card-price-original">{comparePrice.toLocaleString()} {t('egp')}</span>
           )}
         </div>
+
+        {inStock && firstVariant ? (
+          <button
+            onClick={handleAddToCart}
+            disabled={addingToCart}
+            style={{
+              marginTop: '12px', width: '100%', padding: '10px',
+              background: addingToCart ? '#9ca3af' : '#1a1a2e', color: 'white',
+              border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '0.8rem',
+              cursor: addingToCart ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
+              letterSpacing: '0.04em',
+            }}
+            onMouseEnter={e => { if (!addingToCart) e.currentTarget.style.background = '#c9a959'; }}
+            onMouseLeave={e => { if (!addingToCart) e.currentTarget.style.background = '#1a1a2e'; }}
+          >
+            {addingToCart ? '...' : '🛒 Add to Cart'}
+          </button>
+        ) : (
+          <span style={{ marginTop: '12px', fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Out of Stock
+          </span>
+        )}
       </div>
     </Link>
   );
 }
 
+/* ── Skeletons ── */
 function ProductCardSkeleton() {
   return (
-    <div className="block">
-      <div className="aspect-[4/5] bg-[#f7f5f2] animate-pulse mb-6" />
-      <div className="flex flex-col items-center">
-        <div className="h-3 w-1/4 bg-gray-200 rounded animate-pulse mb-3" />
-        <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse mb-3" />
-        <div className="h-4 w-1/3 bg-gray-200 rounded animate-pulse" />
+    <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+      <div style={{ aspectRatio: '4/5', background: 'linear-gradient(90deg,#f7f5f2 25%,#ede9e3 50%,#f7f5f2 75%)', animation: 'pulse 1.5s infinite' }} />
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+        <div style={{ height: '10px', width: '30%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+        <div style={{ height: '16px', width: '70%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+        <div style={{ height: '14px', width: '40%', background: '#e5e7eb', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
       </div>
     </div>
   );
 }
 
+/* ── Features Section ── */
 function FeaturesSection() {
   const t = useTranslations('features');
   const features = [
@@ -339,18 +359,16 @@ function FeaturesSection() {
   ];
 
   return (
-    <section className="py-24 md:py-32 bg-white border-y border-gray-100">
-      <div className="container max-w-[1400px] mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+    <section className="section" style={{ background: 'white', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', padding: '48px 0' }}>
+      <div className="container">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '40px' }}>
           {features.map((feature, i) => (
-            <div key={i} className={`pt-8 sm:pt-0 ${i !== 0 ? 'sm:pl-8 lg:pl-12' : ''} flex flex-col items-start`}>
-              <div className="mb-6 text-[#1a1a2e]">
-                {feature.icon}
-              </div>
-              <h3 className="font-display text-lg font-medium text-[#1a1a2e] mb-3 tracking-tight">
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+              <div style={{ marginBottom: '20px', color: '#1a1a2e' }}>{feature.icon}</div>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 500, color: '#1a1a2e', marginBottom: '8px', letterSpacing: '-0.01em' }}>
                 {feature.title}
               </h3>
-              <p className="text-sm text-gray-500 leading-relaxed font-light">
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.6, fontWeight: 300 }}>
                 {feature.description}
               </p>
             </div>
@@ -361,15 +379,16 @@ function FeaturesSection() {
   );
 }
 
+/* ── Newsletter Section ── */
 function NewsletterSection() {
   const t = useTranslations('newsletter');
+  const tCommon = useTranslations('common');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-
     setStatus('loading');
     try {
       const res = await fetch('/api/v1/newsletter', {
@@ -381,8 +400,10 @@ function NewsletterSection() {
       if (data.success) {
         setStatus('success');
         setEmail('');
+        toast.success('Subscribed successfully!');
       } else {
         setStatus('error');
+        toast.error(data.error || 'Subscription failed');
       }
     } catch {
       setStatus('error');
@@ -390,36 +411,37 @@ function NewsletterSection() {
   };
 
   return (
-    <section className="py-24 md:py-32 bg-[#1a1a2e] text-center relative overflow-hidden">
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1920&q=80')] bg-cover bg-center opacity-10 mix-blend-overlay"></div>
-      <div className="container max-w-[1400px] mx-auto px-6 relative z-10">
-        <h2 className="font-display text-3xl md:text-5xl text-white font-medium mb-6 tracking-tight">
+    <section className="section" style={{ background: 'var(--color-primary)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1920&q=80')", backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.1, mixBlendMode: 'overlay' }} />
+      <div className="container" style={{ position: 'relative', zIndex: 10 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.75rem,4vw,3rem)', color: 'white', fontWeight: 500, marginBottom: '20px', letterSpacing: '-0.02em' }}>
           {t('title')}
         </h2>
-        <p className="text-white/70 max-w-lg mx-auto mb-12 text-base md:text-lg font-light">
+        <p style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '480px', margin: '0 auto 48px', fontSize: '1rem', fontWeight: 300 }}>
           {t('description')}
         </p>
 
         {status === 'success' ? (
-          <div className="inline-flex py-4 px-8 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-none font-medium items-center justify-center tracking-wide">
+          <div style={{ display: 'inline-flex', padding: '16px 32px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', fontWeight: 500, alignItems: 'center', justifyContent: 'center', letterSpacing: '0.04em' }}>
             ✓ {t('success')}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-0 max-w-xl mx-auto">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '16px', maxWidth: '520px', margin: '0 auto', flexWrap: 'wrap' }}>
             <input
               type="email"
               placeholder={t('placeholder')}
-              className="flex-1 px-8 py-4 bg-white/5 backdrop-blur-sm border border-white/20 text-white placeholder-white/40 rounded-none rounded-t-xl sm:rounded-tr-none sm:rounded-l-xl focus:outline-none focus:border-[#c9a959] focus:bg-white/10 transition-all font-light"
+              style={{ flex: 1, minWidth: '200px', padding: '14px 20px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: 'white', fontSize: '1rem', outline: 'none', backdropFilter: 'blur(4px)' }}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
             />
             <button
               type="submit"
-              className="px-10 py-4 bg-[#c9a959] text-[#1a1a2e] font-medium tracking-wide uppercase text-sm rounded-none rounded-b-xl sm:rounded-bl-none sm:rounded-r-xl hover:bg-[#d4b86a] transition-colors disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
+              className="btn btn-secondary btn-lg"
               disabled={status === 'loading'}
+              style={{ whiteSpace: 'nowrap' }}
             >
-              {status === 'loading' ? t('sending') : t.raw('subscribe') || 'Subscribe'}
+              {status === 'loading' ? t('sending') : tCommon('subscribe')}
             </button>
           </form>
         )}
@@ -428,95 +450,7 @@ function NewsletterSection() {
   );
 }
 
-function Footer({ locale }: { locale: string }) {
-  const t = useTranslations('footer');
-  const tNav = useTranslations('nav');
-  const tCommon = useTranslations('common');
-
-  return (
-    <footer className="bg-[#0a0a14] pt-24 pb-12">
-      <div className="container max-w-[1400px] mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-20">
-          <div className="lg:col-span-2 pr-0 lg:pr-12">
-            <h3 className="font-display text-3xl text-white font-medium mb-8 tracking-tight">
-              {locale === 'ar' ? 'فيرنتشر' : 'FURNITURE'}<span className="text-[#c9a959]">.</span>
-            </h3>
-            <p className="text-white/50 text-sm leading-relaxed mb-8 max-w-sm font-light">
-              {t('description')}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-white font-medium mb-8 tracking-wide uppercase text-xs">{tNav('quickLinks')}</h4>
-            <ul className="flex flex-col gap-3">
-              {[
-                { label: tCommon('shop'), href: '/products' },
-                { label: tCommon('categories'), href: '/categories' },
-                { label: tCommon('about'), href: '/about' },
-                { label: tCommon('contact'), href: '/contact' },
-              ].map((link) => (
-                <li key={link.label}>
-                  <Link href={`/${locale}${link.href}`} className="text-white/60 hover:text-[#c9a959] text-sm transition-colors" style={{ textDecoration: 'none' }}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-6">{tNav('customerService')}</h4>
-            <ul className="flex flex-col gap-3">
-              {[
-                { label: tNav('faq'), href: '/faq' },
-                { label: tNav('shipping'), href: '/shipping' },
-                { label: tNav('returns'), href: '/returns' },
-                { label: tNav('trackOrder'), href: '/track' },
-              ].map((link) => (
-                <li key={link.label}>
-                  <Link href={`/${locale}${link.href}`} className="text-white/60 hover:text-[#c9a959] text-sm transition-colors" style={{ textDecoration: 'none' }}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-6">{tNav('contactInfo')}</h4>
-            <ul className="flex flex-col gap-4">
-              <li className="flex gap-3 text-white/60 text-sm">
-                <span className="text-xl">📍</span>
-                <span>{t('address')}</span>
-              </li>
-              <li className="flex gap-3 text-white/60 text-sm">
-                <span className="text-xl">📞</span>
-                <span>{t('phone')}</span>
-              </li>
-              <li className="flex gap-3 text-white/60 text-sm">
-                <span className="text-xl">✉️</span>
-                <span>{t('email')}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-white/30 text-xs font-light">
-            {t('copyright')}
-          </p>
-          <div className="flex gap-6 items-center">
-            <span className="text-white/30 text-[10px] font-medium tracking-[0.2em] uppercase">
-              Secure Checkout by Paymob
-            </span>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-// Icons
+// ── Icons ──
 function HeartIcon({ filled = false }: { filled?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
@@ -524,7 +458,6 @@ function HeartIcon({ filled = false }: { filled?: boolean }) {
     </svg>
   );
 }
-
 function EyeIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -532,7 +465,6 @@ function EyeIcon() {
     </svg>
   );
 }
-
 function TruckIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -540,7 +472,6 @@ function TruckIcon() {
     </svg>
   );
 }
-
 function ShieldIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -548,7 +479,6 @@ function ShieldIcon() {
     </svg>
   );
 }
-
 function RefreshIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -556,7 +486,6 @@ function RefreshIcon() {
     </svg>
   );
 }
-
 function SupportIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

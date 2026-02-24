@@ -39,56 +39,35 @@ export default function ReturnsPage() {
     return (
         <div>
             {/* Hero */}
-            <section style={{
-                background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-                color: 'white',
-                padding: '80px 0',
-                textAlign: 'center',
-            }}>
+            <section style={{ background: '#1a1a2e', color: 'white', padding: '80px 0', textAlign: 'center' }}>
                 <div className="container">
-                    <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', marginBottom: '16px' }}>{t('title')}</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.7)' }}>{t('subtitle')}</p>
+                    <span style={{ fontSize: '3rem', display: 'block', marginBottom: '16px' }}>↩️</span>
+                    <h1 className="font-display" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, marginBottom: '16px', color: 'white' }}>{t('title')}</h1>
+                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1.1rem', maxWidth: '480px', margin: '0 auto' }}>{t('subtitle')}</p>
                 </div>
             </section>
 
             {/* Guarantee Banner */}
-            <section style={{ padding: '60px 0' }}>
-                <div className="container" style={{ textAlign: 'center', maxWidth: 700 }}>
-                    <div style={{
-                        background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                        padding: '40px',
-                        borderRadius: '16px',
-                        border: '1px solid #a7f3d0',
-                    }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '16px' }}>✅</div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '12px', color: '#065f46' }}>
-                            {t('guaranteeTitle')}
-                        </h2>
-                        <p style={{ color: '#047857', lineHeight: 1.7 }}>{t('guaranteeDesc')}</p>
+            <section className="section bg-bg">
+                <div className="container max-w-2xl">
+                    <div className="bg-success/10 border border-success/30 rounded-3xl p-10 text-center">
+                        <div className="text-6xl mb-5">✅</div>
+                        <h2 className="font-display text-2xl font-bold text-primary mb-3">{t('guaranteeTitle')}</h2>
+                        <p className="text-text-muted leading-relaxed">{t('guaranteeDesc')}</p>
                     </div>
                 </div>
             </section>
 
             {/* Conditions */}
-            <section style={{ padding: '60px 0', background: '#f9fafb' }}>
+            <section className="section bg-bg-alt">
                 <div className="container">
-                    <h2 style={{ fontSize: '1.75rem', textAlign: 'center', marginBottom: '48px', color: '#1f2937' }}>
-                        {t('conditions')}
-                    </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
+                    <h2 className="font-display text-3xl font-bold text-primary text-center mb-12">{t('conditions')}</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {conditions.map((condition, i) => (
-                            <div key={i} style={{
-                                background: 'white',
-                                padding: '24px',
-                                borderRadius: '12px',
-                                textAlign: 'center',
-                                border: '1px solid #e5e7eb',
-                            }}>
-                                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>{condition.icon}</div>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', color: '#1f2937' }}>
-                                    {condition.title}
-                                </h3>
-                                <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>{condition.desc}</p>
+                            <div key={i} className="bg-white rounded-2xl border border-border-light p-6 text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+                                <div className="text-4xl mb-4">{condition.icon}</div>
+                                <h3 className="font-bold text-primary mb-2">{condition.title}</h3>
+                                <p className="text-text-muted text-sm">{condition.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -96,78 +75,49 @@ export default function ReturnsPage() {
             </section>
 
             {/* How to Return */}
-            <section style={{ padding: '80px 0' }}>
-                <div className="container" style={{ maxWidth: 700 }}>
-                    <h2 style={{ fontSize: '1.75rem', textAlign: 'center', marginBottom: '48px', color: '#1f2937' }}>
-                        {t('howToReturn')}
-                    </h2>
-                    {howToReturn.map((item, i) => (
-                        <div key={i} style={{
-                            display: 'flex',
-                            gap: '20px',
-                            marginBottom: '24px',
-                            alignItems: 'flex-start',
-                        }}>
-                            <div style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: '50%',
-                                background: '#b8860b',
-                                color: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: 700,
-                                flexShrink: 0,
-                            }}>
-                                {item.step}
+            <section className="section bg-bg">
+                <div className="container max-w-2xl">
+                    <h2 className="font-display text-3xl font-bold text-primary text-center mb-12">{t('howToReturn')}</h2>
+                    <div className="space-y-6">
+                        {howToReturn.map((item, i) => (
+                            <div key={i} className="flex gap-5 items-start">
+                                <div className="w-10 h-10 rounded-full bg-secondary text-primary flex items-center justify-center font-display font-bold text-lg shrink-0">
+                                    {item.step}
+                                </div>
+                                <div className="pt-1">
+                                    <h3 className="font-bold text-primary mb-1">{item.title}</h3>
+                                    <p className="text-text-muted">{item.desc}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '4px', color: '#1f2937' }}>
-                                    {item.title}
-                                </h3>
-                                <p style={{ color: '#6b7280' }}>{item.desc}</p>
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </section>
 
             {/* Refund Timeline */}
-            <section style={{ padding: '60px 0', background: '#f9fafb' }}>
-                <div className="container" style={{ maxWidth: 600 }}>
-                    <h2 style={{ fontSize: '1.75rem', textAlign: 'center', marginBottom: '32px', color: '#1f2937' }}>
-                        {t('refundTimeline')}
-                    </h2>
-                    {refundTimeline.map((item, i) => (
-                        <div key={i} style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            padding: '16px 0',
-                            borderBottom: i < refundTimeline.length - 1 ? '1px solid #e5e7eb' : 'none',
-                        }}>
-                            <span style={{ color: '#1f2937' }}>{item.method}</span>
-                            <span style={{ fontWeight: 600, color: '#10b981' }}>{item.time}</span>
-                        </div>
-                    ))}
+            <section className="section bg-bg-alt">
+                <div className="container max-w-lg">
+                    <h2 className="font-display text-3xl font-bold text-primary text-center mb-10">{t('refundTimeline')}</h2>
+                    <div className="bg-white rounded-2xl border border-border-light overflow-hidden shadow-sm">
+                        {refundTimeline.map((item, i) => (
+                            <div key={i} className={`flex justify-between items-center px-6 py-5 ${i < refundTimeline.length - 1 ? 'border-b border-border-light' : ''}`}>
+                                <span className="font-medium text-primary">{item.method}</span>
+                                <span className="font-bold text-success">{item.time}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </section>
 
             {/* Non-Returnable */}
-            <section style={{ padding: '60px 0' }}>
-                <div className="container" style={{ maxWidth: 600, textAlign: 'center' }}>
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '24px', color: '#1f2937' }}>{t('nonReturnable')}</h2>
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
+            <section className="section bg-bg">
+                <div className="container max-w-lg text-center">
+                    <h2 className="font-display text-2xl font-bold text-primary mb-8">{t('nonReturnable')}</h2>
+                    <ul className="space-y-3">
                         {nonReturnable.map((item, i) => (
-                            <li key={i} style={{
-                                padding: '12px',
-                                background: '#fef2f2',
-                                marginBottom: '8px',
-                                borderRadius: '8px',
-                                color: '#991b1b',
-                                fontSize: '0.875rem',
-                            }}>
-                                ✕ {item}
+                            <li key={i} className="flex items-center gap-3 p-4 bg-error/5 rounded-xl border border-error/10 text-error font-medium">
+                                <span>✕</span>
+                                <span>{item}</span>
                             </li>
                         ))}
                     </ul>
@@ -175,23 +125,10 @@ export default function ReturnsPage() {
             </section>
 
             {/* CTA */}
-            <section style={{
-                background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-                padding: '60px 0',
-                textAlign: 'center',
-            }}>
-                <div className="container">
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '12px', color: 'white' }}>{t('needHelp')}</h2>
-                    <Link href={`/${locale}/contact`} style={{
-                        display: 'inline-block',
-                        marginTop: '16px',
-                        padding: '14px 32px',
-                        background: '#b8860b',
-                        color: 'white',
-                        borderRadius: '8px',
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                    }}>
+            <section style={{ background: '#1a1a2e', padding: '80px 0', textAlign: 'center' }}>
+                <div className="container" style={{ maxWidth: '640px' }}>
+                    <h2 className="font-display" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 700, color: 'white', marginBottom: '24px' }}>{t('needHelp')}</h2>
+                    <Link href={`/${locale}/contact`} style={{ display: 'inline-block', background: '#c9a959', color: '#1a1a2e', padding: '14px 36px', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '1rem' }}>
                         {locale === 'ar' ? 'تواصل معنا' : 'Contact Us'}
                     </Link>
                 </div>
